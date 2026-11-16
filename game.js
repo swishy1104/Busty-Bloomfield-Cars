@@ -211,7 +211,7 @@
   let padName = null, padMap = store.get('padMap', null), padSetup = null;      // padMap: a layout captured in Options (null = the browser's standard layout)
   const padPrev = new Uint8Array(18), padHit = new Uint8Array(18);
   const PAD_STD = { steer: { a: 0, s: 1 }, gas: { b: 7 }, brake: { b: 6 }, hb: { b: 0 }, up: { b: 5 }, down: { b: 4 }, cam: { b: 3 }, reset: { b: 1 }, pause: { b: 9 } };
-  const PAD_ACTS = ['gas', 'brake', 'hb', 'up', 'down', 'cam', 'reset', 'pause'], padWas = {}, padEdge = {}, PAD_NONE = { steer: { a: 0, s: 1 } };
+  const PAD_ACTS = ['gas', 'brake', 'hb', 'up', 'down', 'cam', 'reset', 'pause'], padWas = {}, padEdge = {}, PAD_NONE = { steer: { a: 0, s: 1 } }, menuWas = {}, menuEdge = {};
   // a control is a button {b} or an axis {a, r: rest value, t: the end it travels to} (triggers are axes on some pads); 0..1
   const padVal = (gp, m) => { if (!m) return 0; if (m.b !== undefined) { const q = gp.buttons[m.b]; return q ? Math.max(q.value || 0, q.pressed ? 1 : 0) : 0; } const v = gp.axes[m.a]; return v === undefined ? 0 : clamp((v - m.r) / (m.t - m.r), 0, 1); };
   const PAD_STEPS = [['steer', 'Push the LEFT STICK to the right'], ['gas', 'Pull the GAS trigger (right trigger)'], ['brake', 'Pull the BRAKE trigger (left trigger)'], ['hb', 'Press HANDBRAKE (A)'], ['up', 'Press SHIFT UP (right bumper)'], ['down', 'Press SHIFT DOWN (left bumper)'], ['cam', 'Press CAMERA (Y)'], ['reset', 'Press RESET (B)'], ['pause', 'Press PAUSE (Start)']];
@@ -245,10 +245,12 @@
       const M = padMap || (gp.mapping === 'standard' ? PAD_STD : PAD_NONE), sv = gp.axes[M.steer.a + 1] || 0;      // the stick's vertical axis moves menus; an unknown layout drives nothing until it is set up
       for (let i = 0; i < 18; i++) { const p = i < 16 ? !!(gp.buttons[i] && gp.buttons[i].pressed) : (i === 16 ? sv < -0.6 : sv > 0.6); padHit[i] = p && !padPrev[i] ? 1 : 0; padPrev[i] = p ? 1 : 0; }
       for (const k of PAD_ACTS) { const p = padVal(gp, M[k]) > 0.5; padEdge[k] = p && !padWas[k] ? 1 : 0; padWas[k] = p; }
+      const MM = padMap || PAD_STD, odd = !padMap && gp.mapping !== 'standard';      // menus on any pad: A (0) selects; B (1), Start (9, or 11 on Android-style pads) go back
+      for (const k of ['hb', 'reset', 'pause']) { const p = padVal(gp, MM[k]) > 0.5 || (odd && k === 'pause' && padVal(gp, { b: 11 }) > 0.5); menuEdge[k] = p && !menuWas[k] ? 1 : 0; menuWas[k] = p; }
       const a0 = (gp.axes[M.steer.a] || 0) - (M.steer.r || 0), ax = Math.abs(a0) < 0.08 ? 0 : a0; steer -= (M.steer.s || 1) * Math.sign(ax) * Math.pow(Math.abs(ax), 1.6);
       gas = Math.max(gas, padVal(gp, M.gas)); brake = Math.max(brake, padVal(gp, M.brake)); hb = Math.max(hb, padVal(gp, M.hb));
       if (padSetup) padCapture(gp);
-      else if (photo) { if (padEdge.reset || padEdge.pause) setPhoto(false); }
+      else if (photo) { if (menuEdge.reset || menuEdge.pause) setPhoto(false); }
       else if (panel || mode === 'title') padMenu();
       else { if (padEdge.up) P.shift(car, 1); if (padEdge.down) P.shift(car, -1); if (padEdge.cam) camMode = (camMode + 1) % 3; if (padEdge.reset) resetCar(); if (padEdge.pause) pause(); }
     }
@@ -257,10 +259,10 @@
   // menus on a pad: D-pad or stick moves the focus, A presses, B or Start goes back (Start on the title drives)
   function padMenu() {
     const root = $(panel || 'title'), a = document.activeElement, on = a && a.tagName === 'BUTTON' && root.contains(a) ? a : null;
-    const dir = padHit[12] || padHit[14] || padHit[16] ? -1 : padHit[13] || padHit[15] || padHit[17] ? 1 : padEdge.hb && !on && panel ? 1 : 0;
+    const dir = padHit[12] || padHit[14] || padHit[16] ? -1 : padHit[13] || padHit[15] || padHit[17] ? 1 : menuEdge.hb && !on && panel ? 1 : 0;
     if (dir) { const l = Array.prototype.filter.call(root.querySelectorAll('button'), (b) => !b.disabled && b.offsetParent), i = l.indexOf(on); if (l.length) l[i < 0 ? 0 : (i + dir + l.length) % l.length].focus({ focusVisible: true }); }
-    else if (padEdge.hb) { if (on) on.click(); else startDriving(); }
-    else if (padEdge.reset || padEdge.pause) { if (panel) back(); else if (padEdge.pause) startDriving(); }
+    else if (menuEdge.hb) { if (on) on.click(); else startDriving(); }
+    else if (menuEdge.reset || menuEdge.pause) { if (panel) back(); else if (menuEdge.pause) startDriving(); }
   }
   $('tCam').onclick = () => { camMode = (camMode + 1) % 3; };      // touch: chase / far chase / hood
   [['tL', 'l'], ['tR', 'r'], ['tGas', 'gas'], ['tBrk', 'brk'], ['tHb', 'hb']].forEach(([id, key]) => {
