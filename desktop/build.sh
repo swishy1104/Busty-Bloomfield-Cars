@@ -15,6 +15,7 @@ rm -rf launcher/game build dist
 mkdir -p launcher/game/fonts build dist
 cp "$ROOT"/index.html "$ROOT"/*.js "$ROOT"/*.png launcher/game/
 cp "$ROOT"/fonts/* launcher/game/fonts/
+[ -d "$ROOT"/radio ] && cp -r "$ROOT"/radio launcher/game/      # the car radio's royalty-free songs
 cp "$ROOT"/node_modules/three/build/three.min.js launcher/game/      # the page loads three.js from a CDN; the desktop build is offline
 python3 make_icon.py build/icon.png build/icon.ico
 
@@ -24,8 +25,8 @@ python3 make_icon.py build/icon.png build/icon.ico
     --product-version "$VER" --file-version "$VER" --copyright "" --original-filename "Bloomfield Drift.exe" --arch amd64
   GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -H windowsgui -X main.version=$VER" -o "../build/Bloomfield Drift.exe" .
   rm -f rsrc_windows_*.syso
-  GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=$VER" -o ../build/mac-arm64 .
-  GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=$VER" -o ../build/mac-amd64 .
+  GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -tags noembed -trimpath -ldflags="-s -w -X main.version=$VER" -o ../build/mac-arm64 .
+  GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -tags noembed -trimpath -ldflags="-s -w -X main.version=$VER" -o ../build/mac-amd64 .
   GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=$VER" -o ../build/bloomfield-drift .
 )
 
@@ -36,6 +37,7 @@ makensis -V2 -DVERSION="$VER" -DSIZE_KB=$SIZE_KB installer.nsi
 APP="build/Bloomfield Drift.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp build/mac-arm64 build/mac-amd64 "$APP/Contents/MacOS/"
+cp -r launcher/game "$APP/Contents/Resources/game"      # one copy of the game for both chips
 printf '#!/bin/sh\ncd "$(dirname "$0")"\nif [ "$(uname -m)" = arm64 ]; then exec ./mac-arm64; else exec ./mac-amd64; fi\n' > "$APP/Contents/MacOS/launch"
 chmod +x "$APP/Contents/MacOS/"*
 python3 -c "from PIL import Image; Image.open('build/icon.png').save('$APP/Contents/Resources/icon.icns')"

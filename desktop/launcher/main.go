@@ -7,7 +7,6 @@ package main
 
 import (
 	"bytes"
-	"embed"
 	"fmt"
 	"io/fs"
 	"log"
@@ -21,9 +20,6 @@ import (
 	"sync/atomic"
 	"time"
 )
-
-//go:embed all:game
-var gameFS embed.FS
 
 var version = "dev"
 
@@ -43,10 +39,10 @@ func main() {
 	}
 	log.Printf("Bloomfield Drift %s on %s/%s", version, runtime.GOOS, runtime.GOARCH)
 	// Windows reads MIME types from the registry, where .js is sometimes text/plain: pin the ones the game uses
-	for ext, typ := range map[string]string{".js": "text/javascript", ".html": "text/html; charset=utf-8", ".css": "text/css", ".png": "image/png", ".woff2": "font/woff2", ".json": "application/json"} {
+	for ext, typ := range map[string]string{".js": "text/javascript", ".html": "text/html; charset=utf-8", ".css": "text/css", ".png": "image/png", ".woff2": "font/woff2", ".json": "application/json", ".mp3": "audio/mpeg"} {
 		mime.AddExtensionType(ext, typ)
 	}
-	game, err := fs.Sub(gameFS, "game")
+	game, err := gameFiles()
 	if err != nil {
 		log.Fatal(err)
 	}
