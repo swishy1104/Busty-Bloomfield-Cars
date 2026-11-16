@@ -79,7 +79,7 @@
     renderer.toneMappingExposure = W.setTime(S.tod); W.setLeaves(S.leaves);
     applyQuality(); resize(); addEventListener('resize', resize);
     courses = PRESETS.map(snapCourse).concat(store.get('courses', []));
-    $('load').hidden = true; for (const id of ['bDrive', 'bTitleCars', 'bTitleRace']) $(id).disabled = false;
+    $('load').hidden = true; for (const id of ['bDrive', 'bTitleCars', 'bTitleRace', 'bTitleOptions']) $(id).disabled = false;
     if (hot && hot.driving) startDriving();
     let last = performance.now();
     (function loop(now) { requestAnimationFrame(loop); const dt = Math.min(0.05, (now - last) / 1000); last = now; frame(dt); })(last);
@@ -215,7 +215,7 @@
   // a control is a button {b} or an axis {a, r: rest value, t: the end it travels to} (triggers are axes on some pads); 0..1
   const padVal = (gp, m) => { if (!m) return 0; if (m.b !== undefined) { const q = gp.buttons[m.b]; return q ? Math.max(q.value || 0, q.pressed ? 1 : 0) : 0; } const v = gp.axes[m.a]; return v === undefined ? 0 : clamp((v - m.r) / (m.t - m.r), 0, 1); };
   const PAD_STEPS = [['steer', 'Push the LEFT STICK to the right'], ['gas', 'Pull the GAS trigger (right trigger)'], ['brake', 'Pull the BRAKE trigger (left trigger)'], ['hb', 'Press HANDBRAKE (A)'], ['up', 'Press SHIFT UP (right bumper)'], ['down', 'Press SHIFT DOWN (left bumper)'], ['cam', 'Press CAMERA (Y)'], ['reset', 'Press RESET (B)'], ['pause', 'Press PAUSE (Start)']];
-  function padSetupStart() { padSetup = { i: 0, map: {}, rest: null, idle: false }; openPanel('pPad', 'pOptions'); $('padStep').textContent = padRef ? '' : 'Press any button on the controller to begin'; if (padRef) padStepText(); }
+  function padSetupStart(auto) { padSetup = { i: 0, map: {}, rest: null, idle: false }; openPanel('pPad', auto ? null : 'pOptions'); $('padStep').textContent = padRef ? '' : 'Press any button on the controller to begin'; if (padRef) padStepText(); }
   function padStepText() { $('padStep').textContent = (padSetup.i + 1) + ' of ' + PAD_STEPS.length + ': ' + PAD_STEPS[padSetup.i][1]; }
   function padOptText() { const g = padRef; $('padOpt').textContent = g ? 'Controller connected: ' + padName.replace(/\s*\(.*$/, '').trim() + ' · ' + g.buttons.length + ' buttons, ' + g.axes.length + ' axes, ' + (g.mapping === 'standard' ? 'standard layout' : 'non-standard layout: use Set up buttons') + (padMap ? ' · custom layout in use' : '') : 'No controller detected. Click in the game, then press any button on the controller.'; }
   function padCapture(gp) {     // one step per control: wait for a quiet pad, then take the first button pressed or axis moved
@@ -230,7 +230,7 @@
     if (!m || (key === 'steer' && m.b !== undefined)) return;
     s.map[key] = m; s.idle = false; s.i++;
     if (s.i < PAD_STEPS.length) { padStepText(); return; }
-    $('padLive').textContent = ''; padMap = s.map; store.set('padMap', padMap); padSetup = null; padOptText(); openPanel('pOptions'); toast('Controller set up');
+    $('padLive').textContent = ''; padMap = s.map; store.set('padMap', padMap); padSetup = null; padOptText(); if (panelBack) openPanel('pOptions'); else closePanel(); toast('Controller set up');
   }     // standard pad buttons 0-15, then 16/17 = left stick up/down
   function readInput() {
     let steer = (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0) - (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) + touch.l - touch.r;
@@ -239,7 +239,8 @@
     if (pads) for (let i = 0; i < pads.length; i++) { const g = pads[i]; if (g && g.connected && g.buttons.length >= 4) { gp = g; break; } }
     padRef = gp; const pn = gp ? gp.id : null;
     if (pn !== padName) { padName = pn; const short = pn ? pn.replace(/\s*\(.*$/, '').trim() || 'Gamepad' : null; $('padStatus').textContent = short ? 'Controller connected: ' + short : 'No controller detected. Click in the game, then press any button on the controller.'; if (mode !== 'title') toast(short ? 'Controller connected: ' + short : 'Controller disconnected'); padOptText();
-      if (gp && gp.mapping !== 'standard' && !padMap && W && !padSetup && store.get('padAsked') !== pn) { store.set('padAsked', pn); padSetupStart(); toast('Unknown controller layout: set up its buttons'); } }      // a pad the browser cannot map: ask once
+      const unknown = gp && gp.mapping !== 'standard' && !padMap; $('titlePad').hidden = !gp; if (gp) $('titlePad').textContent = 'Controller: ' + short + (unknown ? ' · layout unknown: Options → Controller → Set up buttons' : ' · ready'); }
+    if (gp && gp.mapping !== 'standard' && !padMap && mode === 'drive' && !panel && !padSetup && store.get('padAsked') !== gp.id) { store.set('padAsked', gp.id); padSetupStart(true); toast('Unknown controller layout: set up its buttons'); }      // a pad the browser cannot map: ask once, while driving
     if (gp) {
       const M = padMap || (gp.mapping === 'standard' ? PAD_STD : PAD_NONE), sv = gp.axes[M.steer.a + 1] || 0;      // the stick's vertical axis moves menus; an unknown layout drives nothing until it is set up
       for (let i = 0; i < 18; i++) { const p = i < 16 ? !!(gp.buttons[i] && gp.buttons[i].pressed) : (i === 16 ? sv < -0.6 : sv > 0.6); padHit[i] = p && !padPrev[i] ? 1 : 0; padPrev[i] = p ? 1 : 0; }
@@ -697,7 +698,7 @@
   $('bMenu').onclick = pause;
   $('bGarage').onclick = () => openPanel('pGarage'); $('bCourses').onclick = () => openPanel('pCourses'); $('bOptions').onclick = () => openPanel('pOptions'); $('bHelp').onclick = () => openPanel('pHelp');
   $('bReset').onclick = resetCar;
-  $('bTitleCars').onclick = () => openPanel('pGarage'); $('bTitleRace').onclick = () => openPanel('pCourses'); $('bTitleHelp').onclick = () => openPanel('pHelp');
+  $('bTitleCars').onclick = () => openPanel('pGarage'); $('bTitleRace').onclick = () => openPanel('pCourses'); $('bTitleHelp').onclick = () => openPanel('pHelp'); $('bTitleOptions').onclick = () => openPanel('pOptions');
   // controls strip: stays until gas, steering and handbrake have each been used once (then never again)
   const tutEl = document.createElement('div'); tutEl.hidden = true; $('stage2').append(tutEl);
   tutEl.style.cssText = 'position:absolute;left:50%;bottom:' + (isTouch ? 250 : innerWidth <= 920 ? 226 : 166) + 'px;transform:translateX(-50%);max-width:92%;width:max-content;text-align:center;padding:6px 12px;border-radius:4px;background:rgba(24,22,23,.62);font:600 16px var(--text);letter-spacing:.04em;pointer-events:none';
