@@ -51,6 +51,11 @@ func main() {
 		log.Fatal(err)
 	}
 	index = bytes.Replace(index, []byte("https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"), []byte("three.min.js"), 1)
+	// the page is written for a host that adds the document skeleton (standards mode, charset, viewport); served bare it would
+	// render in quirks mode, so add the skeleton here when it is missing
+	if !bytes.HasPrefix(bytes.TrimSpace(bytes.ToLower(index[:min(len(index), 64)])), []byte("<!doctype")) {
+		index = append([]byte("<!doctype html>\n<html lang=\"en\">\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"), index...)
+	}
 	if i := bytes.LastIndex(index, []byte("</body>")); i >= 0 {
 		index = append(index[:i:i], append([]byte(heartbeat), index[i:]...)...)
 	} else { // the page has no closing tags: the scripts simply end the file
