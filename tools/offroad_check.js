@@ -55,7 +55,9 @@ if (typeof require !== 'undefined' && require.main === module) {
   console.table(rows);
   const row = (surf, car) => rows.find((r) => r.surf === surf && r.car.startsWith(car));
   // before the off-road retune (grass mu 0.55 rr 0.09, gravel mu 0.70) grass gave: 0-30 in 9.5 / 8.0 / 11.6 s, 16.1 / 17.4 / 18.5 m stops,
-  // 7.5 / 10.6 / 4.3 mph after 6 s up the slope and a 2.0 s flick recovery for the drift Mazda3
+  // 7.5 / 10.6 / 4.3 mph after 6 s up the slope and a 2.0 s flick recovery for the drift Mazda3. Before traction control aimed at the
+  // loose-ground peak slip (it cut at 3-8 %, holding the tyres at ~70 % of their grip) grass gave 0-30 in 6.5 / 6.2 / 7.9 s and
+  // 16.9 / 17.5 / 12.1 mph after 6 s up the slope; grass now gains more than gravel, so its lead over gravel is checked at 15 %, not 20 %
   for (const car of ['mazda3', 'passat', 'ranger']) {
     const g = row('grass', car), v = row('gravel', car), a = row('asphalt', car);
     for (const r of [g, v]) {
@@ -67,7 +69,7 @@ if (typeof require !== 'undefined' && require.main === module) {
     // still loose: grass < gravel < asphalt
     assert(g.stop_m > v.stop_m * 1.1 && v.stop_m > a.stop_m * 1.1, `${car} braking order ${g.stop_m} / ${v.stop_m} / ${a.stop_m} m`);
     assert(g.cornG < v.cornG && v.cornG < a.cornG * 0.93, `${car} cornering order ${g.cornG} / ${v.cornG} / ${a.cornG} g`);
-    assert(g.t30 > v.t30 * 1.2 && v.t30 > a.t30 * 1.2 && g.v15 < a.v15 * 0.8, `${car} too quick off-road: 0-30 in ${g.t30} / ${v.t30} / ${a.t30} s, ${g.v15} vs ${a.v15} mph after 15 s`);
+    assert(g.t30 > v.t30 * 1.15 && v.t30 > a.t30 * 1.2 && g.v15 < a.v15 * 0.8, `${car} too quick off-road: 0-30 in ${g.t30} / ${v.t30} / ${a.t30} s, ${g.v15} vs ${a.v15} mph after 15 s`);
   }
   console.log('offroad check OK');
 }

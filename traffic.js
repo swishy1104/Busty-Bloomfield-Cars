@@ -382,7 +382,8 @@
       PC[0] = px + cs * (off + dd); PC[1] = pz - sn * (off + dd); PC[2] = px + cs * (off - dd); PC[3] = pz - sn * (off - dd);
       const cam = game.camera, e = cam.matrixWorld.elements, fl = Math.hypot(e[8], e[10]) || 1;
       camX = e[12]; camZ = e[14]; cfx = -e[8] / fl; cfz = -e[10] / fl; cosV = Math.cos(Math.min(3, Math.atan(Math.tan(cam.fov * Math.PI / 360) * cam.aspect) + 0.35));
-      if ((setT -= dt) <= 0) { setT = 2; N = COUNT[game.settings.traffic] ?? 8; if (!N) for (const c of cars) kill(c); }   // switched off: gone at once
+      const racing = !!(game.race && game.race.state !== 'done'); if (racing !== api.racing) { api.racing = racing; setT = 0; }      // no traffic during races
+      if ((setT -= dt) <= 0) { setT = 2; N = racing ? 0 : COUNT[game.settings.traffic] ?? 8; if (!N) for (const c of cars) kill(c); }   // switched off: gone at once
       if ((nearT -= dt) <= 0) { nearT = 2; nearN = 0; for (let q = 0; q < cand.length; q += 2) { const o = R[cand[q]], k = cand[q + 1], d2 = (o.X[k] - px) ** 2 + (o.Z[k] - pz) ** 2; if (d2 > 25600 && d2 < 202500) near[nearN++] = q; } }
       let alive = 0;
       for (let i = 0; i < MAXN; i++) if (cars[i].on) { step(cars[i]); if (cars[i].on) alive++; }
