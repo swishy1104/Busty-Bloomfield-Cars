@@ -1,3 +1,7 @@
 node_modules/
 *.log
 .DS_Store
+desktop/build/
+desktop/dist/
+desktop/launcher/game/
+desktop/launcher/*.syso
