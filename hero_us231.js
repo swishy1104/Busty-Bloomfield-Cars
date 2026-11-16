@@ -1,34 +1,39 @@
-/* Bloomfield Drift — hero plug-in (heroes.js kit): the house on US 231 half a mile south of the town square (routes.js's south band), from
-   the owner's four Street View screenshots as they were described to us (never their pixels), on the band's Overture footprint and lidar
-   ground (corridors.js), and the place next door.
-   - The house: the band footprint holding the Overture address point (28.6 m long; a covered entry 8.1 m wide projects 3.5 m in the middle of
-     the front and the north 10.2 m stands 0.7 m forward) and the one-storey rear addition touching its back (its own footprint, flat roofed as
-     the lidar has it). A one-and-a-half-storey Cape: steep side-gabled roof of charcoal shingles, three gabled dormers on the front slope, the
-     north end a front-facing cross gable whose gable wall is tan ledgestone like the whole ground floor of the front, cream siding on the
-     gable ends, dormer cheeks and back, white-trimmed double-hung windows, a low-slope metal roof on white posts over the covered entry, mulch
-     beds of round clipped shrubs along the whole front, a red Japanese maple at the left front corner, a white propane tank on the lawn to
-     the right. The lidar classed this roof flat (median 4.5 m over the ground, no slope fit), so the eave (3.1 m) and ridge (6.6 m) follow
-     the photos' one-and-a-half storeys, keeping the model's median roof height near the lidar's (about 5 m).
+/* Bloomfield Drift — hero plug-in (heroes.js kit): 1399 S US Highway 231, the house half a mile south of the town square on the EAST side
+   of the road (routes.js's south band), from the owner's four Street View screenshots as they were described to us (never their pixels), on
+   the band's Overture footprints and lidar ground (corridors.js), and the two places beside it. The front faces west to the road, 47 m off
+   its edge, on ground rising from it; seen from the road (looking east) left is north, right is south.
+   - The house: band building 26 (holding the address point; a straight 25.6 m front, the north half 8.5 m deep, the south half 13 m) and
+     building 25 touching its back (a 1.8 m strip, no roof data: a one-storey rear addition, flat roofed, with the rest of the deep half
+     behind the main block). A one-and-a-half-storey Cape: steep side-gabled roof of charcoal shingles, three gabled dormers on the front
+     slope, the south (right) end a front-facing cross gable 10.2 m wide, 0.7 m forward of the main front and the full depth, whose gable wall
+     is tan ledgestone like the whole ground floor of the front, cream siding on the gable ends, dormer cheeks and back, white-trimmed
+     double-hung windows, a covered entry (8.1 m wide, 3.5 m out) under a low-slope metal roof on white posts, mulch beds of round clipped
+     shrubs along the whole front, a red Japanese maple at the left (north) front corner, a white propane tank on the lawn to the right
+     (south). The lidar classed this roof flat (6.2 m, no slope fit), so the eave (2.75 m over the floor) and ridge follow the photos.
    - The lawn from the road ditch to the woods, mowed in diagonal stripes (the lidar trees stand on it: the tall sycamores in front, the white
-     pines behind); a white crushed-limestone drive leaving US 231 at a short asphalt apron edged with red brick pavers (a white double mailbox
-     on a square post with a small blue plaque, no number, at the mouth), curving up the lawn and on as a gravel strip in front of the house
-     to a white pole building between the two houses.
-   - Next door on the left (south): a single-storey ranch (white siding, dark grey roof, a front-gabled porch with craftsman trim, ledgestone
-     wainscot and piers), its concrete drive curving up the hill from the road. Neither it nor the pole building is in Overture or the lidar
-     (both newer than the scan), so they stand where the screenshots put them, on the spur south of the house; lidar trees on them are hidden.
-   The drives are drivable: W.maskAt answers gravel (2) on the limestone, pavement (5, asphalt to the tyres) on the concrete and the apron and
-   building (4) inside the two new buildings, and W.surface / W.inBuilding follow it. Solids (a W.collide wrapper, as hero_destinations.js):
-   the new buildings' walls, porch posts, mailbox post, tank, maple trunk; the house's own footprint is already solid in routes.js, whose plain
-   shells of it are folded away. Shown within 1.6 km: heroes.js's facade and roof materials (bound on the first frame), a ledgestone material,
-   the paving (the terrain's detail texture, polygon-offset) and, within 350 m (while routes.js draws the band at its 4 m level, whose
-   triangles it is cut from), the striped lawn: 5 draw calls, about 8,300 triangles. Dusk: windows and porch lamps light with the town's.
+     pines behind); a white crushed-limestone drive leaving US 231 south of the house at a short asphalt apron edged with red brick pavers (a
+     white double mailbox on a square post with a small blue plaque, no number, at the mouth), curving up the lawn between the sycamores and
+     on as a gravel strip in front of the house, round its north end to the pole building.
+   - Next door on the left (north), 1383: band building 24, a single-storey ranch (white siding, dark grey roof, its lidar ridge front to
+     back: a front gable with the porch's smaller gable nested in it, craftsman trim, ledgestone wainscot and porch piers), a side-load
+     garage door in its north wall, its concrete drive curving up the hill from the road to the pad there.
+   - Between the two, set back behind them: band building 27 (not 25, which is attached to the house and 1.8 m deep), a white steel pole
+     building on its L outline (a 30 m barn and a lean-to under its south slope carried on down), grey metal roof at the lidar's eave and
+     rise, the overhead door in its west end at the gravel's end.
+   The drives are drivable: W.maskAt answers gravel (2) on the limestone, pavement (5, asphalt to the tyres) on the concrete and the apron,
+   and W.surface follows it. Solids (a W.collide wrapper, as hero_destinations.js): porch posts, mailbox post, tank, maple trunk; the four
+   buildings are band footprints, already solid (and building, 4, in the mask) in routes.js, whose plain shells of them are folded away (by
+   position). Shown within 1.6 km: heroes.js's facade and roof materials (bound on the first frame), a ledgestone material, the paving (the
+   terrain's detail texture, polygon-offset) and, within 350 m (while routes.js draws the band at its 4 m level, whose triangles it is cut
+   from), the striped lawn: 5 draw calls. Dusk: windows and porch lamps light with the town's. 1388 across the road (buildings 32, 33) is
+   routes.js's plain shells again.
    Public: one BD.heroPlugins entry 'us231' (footprints: []); nothing else. */
 (function () {
   'use strict';
   const T = THREE, B = (window.BD = window.BD || {}), CD = window.BLOOMFIELD_CORRIDORS;
   const band = CD && CD.corridors && CD.corridors.find((c) => c.kind === 'area');
   if (!band) return;
-  const ADDR = [515.3, -2560.6];      // the Overture address point (map metres)
+  const ADDR = [661.9, -2586.4];      // 1399's Overture address point (map metres), in band building 26 east of US 231
   const inPoly = (p, x, y) => { let c = false; for (let i = 0, j = p.length - 2; i < p.length; j = i, i += 2) if ((p[i + 1] > y) !== (p[j + 1] > y) && x < p[j] + (y - p[j + 1]) / (p[i + 1] - p[j + 1]) * (p[i] - p[j])) c = !c; return c; };
   const segD = (x, y, ax, ay, bx, by) => { const ex = bx - ax, ey = by - ay, t = Math.max(0, Math.min(1, ((x - ax) * ex + (y - ay) * ey) / (ex * ex + ey * ey || 1))); return Math.hypot(x - ax - ex * t, y - ay - ey * t); };
   const ringD = (p, x, y) => { let d = 1e9; for (let i = 0, j = p.length - 2; i < p.length; j = i, i += 2) d = Math.min(d, segD(x, y, p[j], p[j + 1], p[i], p[i + 1])); return d; };
@@ -38,10 +43,14 @@
   if (hi < 0) return;
   const house = band.buildings[hi], hp = house.p;
   const annex = band.buildings.filter((b, i) => { if (i === hi) return false; for (let k = 0; k < b.p.length; k += 2) if (ringD(hp, b.p[k], b.p[k + 1]) < 2) return true; return false; });
-  // frame: the outline's dominant axis, a toward north, b = a turned anticlockwise (west, away from the road); origin its (min a, min b) corner
+  // next door (by position, band footprints): the ranch, 1383 (building 24), north; the pole building (building 27) between them, set back
+  const fpAt = (x, y) => band.buildings.find((b) => inPoly(b.p, x, y)), ranch = fpAt(685, -2537), pole = fpAt(700, -2563);
+  if (!ranch || !pole) return;
+  // frame: the outline's dominant axis, a toward SOUTH (along the front, left to right seen from the road), b = a turned anticlockwise
+  // (east, away from the road: the front faces west); origin its (min a, min b) corner, the north-west corner
   let sx = 0, sy = 0;
   for (let k = 0; k < hp.length; k += 2) { const j = (k + 2) % hp.length, dx = hp[j] - hp[k], dy = hp[j + 1] - hp[k + 1], L = Math.hypot(dx, dy), t = 4 * Math.atan2(dy, dx); sx += Math.cos(t) * L; sy += Math.sin(t) * L; }
-  let th = Math.atan2(sy, sx) / 4; while (th < Math.PI / 4) th += Math.PI / 2; while (th > 3 * Math.PI / 4) th -= Math.PI / 2;
+  let th = Math.atan2(sy, sx) / 4; while (th < Math.PI / 4) th += Math.PI / 2; while (th > 3 * Math.PI / 4) th -= Math.PI / 2; th += Math.PI;
   const dir = [Math.cos(th), Math.sin(th)], nb = [-dir[1], dir[0]];
   let ma = 1e9, mb = 1e9; for (let k = 0; k < hp.length; k += 2) { ma = Math.min(ma, hp[k] * dir[0] + hp[k + 1] * dir[1]); mb = Math.min(mb, hp[k] * nb[0] + hp[k + 1] * nb[1]); }
   const at = [ma * dir[0] + mb * nb[0], ma * dir[1] + mb * nb[1]];
@@ -173,16 +182,21 @@
     if (!W || !scene || !W.corridors) return;      // no south band (routes.js missing or failed): nothing out here is seen
     const AR = W.corridors.find((R) => R.area); if (!AR) return;
     const { P, N, G, C, Wall } = K, hb = K.hb, mark = [[hb.pos.length, hb.idx.length], [K.rb.pos.length, K.rb.idx.length]];
-    const gb = U.Buf(), circ = [], segs = [], rects = [], drives = [], later = [], info = {};
+    const gb = U.Buf(), circ = [], drives = [], later = [], info = {};
 
     // ---------- the house's plan from its outline ----------
-    const ring = local(K, hp), A1 = Math.max(...ring.map((q) => q[0])), B1 = Math.max(...ring.map((q) => q[1])), fr = [];
-    ring.forEach((q, i) => { const r = ring[(i + 1) % ring.length]; if (Math.abs(r[1] - q[1]) < 0.4 && Math.abs(r[0] - q[0]) > 2 && q[1] + r[1] < B1) fr.push([Math.min(q[0], r[0]), Math.max(q[0], r[0]), (q[1] + r[1]) / 2]); });
-    fr.sort((x, y) => x[0] - y[0]);
-    if (fr.length !== 3 || fr[1][2] > Math.min(fr[0][2], fr[2][2]) - 1.5) throw new Error('us231: expected the outline with the covered entry projecting in the middle of the front');
-    const fm = fr[0][2], fp = fr[1][2], fw = fr[2][2], pa0 = (fr[0][1] + fr[1][0]) / 2, pa1 = (fr[1][1] + fr[2][0]) / 2, aW = (pa1 + A1) / 2;
+    // the outline: a straight front 25.6 m long; the north half 8.5 m deep, the south half 13 m. The model on it, as built before: the main
+    // block (0..pa1) with its covered entry projecting 3.5 m (outside the outline) and the front-facing cross gable, its outer 10.2 m, at the
+    // south end standing 0.7 m forward of the main front and running the full depth; the rest of the deep half behind the main block is a
+    // flat-roofed rear addition like building 25 (a 1.8 m strip on the north half's back)
+    const ring = local(K, hp), A1 = Math.max(...ring.map((q) => q[0])), B1 = Math.max(...ring.map((q) => q[1])), ea = [];
+    ring.forEach((q, i) => { const r = ring[(i + 1) % ring.length]; if (Math.abs(r[1] - q[1]) < 0.6 && Math.abs(r[0] - q[0]) > 2) ea.push([Math.min(q[0], r[0]), Math.max(q[0], r[0]), (q[1] + r[1]) / 2]); });
+    ea.sort((x, y) => x[2] - y[2]);
+    if (ea.length !== 3 || ea[1][0] > 1 || ea[2][1] < A1 - 1) throw new Error('us231: expected the outline with the straight front and the deeper south half');
+    const fw = ea[0][2], fm = fw + 0.7, fp = fm - 3.5, B1m = ea[1][2], aStep = ea[2][0], pa1 = A1 - 10.2, pa0 = pa1 - 8.1, aW = (pa1 + A1) / 2;
+    const addR = annex.map((b) => local(K, b.p)); if (pa1 - aStep > 0.5) addR.push([[aStep, B1m], [pa1 - 0.05, B1m], [pa1 - 0.05, B1], [aStep, B1]]);
     let gLo = 1e9, gHi = -1e9; for (let a = 0; a <= A1 + 0.01; a += A1 / 8) for (const b of [fp, fm, (fm + B1) / 2, B1]) { const g = G(a, b); gLo = Math.min(gLo, g); gHi = Math.max(gHi, g); }
-    const F = gHi + 0.25, YE = F + 2.75, RISE = 3.55, YR = YE + RISE, k = RISE / ((B1 - fm) / 2), kw = RISE / ((A1 - pa1) / 2);
+    const F = gHi + 0.25, YE = F + 2.75, RISE = 3.55, YR = YE + RISE, k = RISE / ((B1m - fm) / 2), kw = RISE / ((A1 - pa1) / 2);
     const SID = C(0xeee6d2), CONC = C(0xa8a49b), WHITE = C(0xf4f3ef), TAN = C(0xfff0d8), TRIM = K.TRIM, ROOF = new T.Color(1.45, 1.58, 1.8), DOORC = C(0x5d3f28);
     const win = (s0, s1, y0, y1, split) => (w) => K.opening(w, s0, s1, y0, y1, 'S1', { split });
     const sill = F + 0.78, head = F + 2.18;
@@ -201,13 +215,16 @@
     wallW(wingF, pa1, A1, gLo - 0.3, YE, [pair(pa1 + 2.6, 0.9), pair(A1 - 2.6, 0.9)], TAN, 0, 'plain');
     K.gable(wingF, pa1, A1, YE, YR, TAN, 0, 'plain');
     later.push(() => K.flatWindow(wingF, aW - 0.5, aW + 0.5, YE + 0.45, YE + 1.75, 'S1'));
-    // the ranch next door (south, on the spur): ledgestone wainscot along its front and the porch piers
-    // ponytail: placed from the screenshots' description (no footprint, no lidar), on the spur south of the house in this frame; real outline if Overture adds one
-    const RA0 = -38, RA1 = -18, RB0 = -38, RB1 = -27, PG0 = -27.5, PG1 = -22.5, PD = 2.4;
-    let rLo = 1e9, rFront = -1e9; for (let a = RA0; a <= RA1; a += 2.5) { for (const b of [RB0, RB1]) rLo = Math.min(rLo, G(a, b)); rFront = Math.max(rFront, G(a, RB0)); }
-    const FR = rFront + 0.35, YER = FR + 2.75, gd = G(-34.3, RB0 - 0.5);
+    // the ranch next door (north, up the hill): band building 24's outline (10.9 m front, 13.5 m deep, within 1 deg of this frame), its
+    // lidar ridge along the depth: a front gable, the porch's smaller front gable nested in it over the door; a side-load garage door on
+    // the north wall; ledgestone wainscot along its front and the porch piers
+    const rp = local(K, ranch.p), RA0 = Math.min(...rp.map((q) => q[0])), RA1 = Math.max(...rp.map((q) => q[0])), RB0 = Math.min(...rp.map((q) => q[1])), RB1 = Math.max(...rp.map((q) => q[1]));
+    const RL = RA1 - RA0, rmA = (RA0 + RA1) / 2, PG0 = rmA - 2.2, PG1 = rmA + 2.2, PD = 2.4;
+    let rLo = 1e9, rFront = -1e9; for (let a = RA0; a <= RA1 + 0.01; a += RL / 4) { for (const b of [RB0, (RB0 + RB1) / 2, RB1]) rLo = Math.min(rLo, G(a, b)); rFront = Math.max(rFront, G(a, RB0)); }
+    // the eave a storey over the floor; the ridge at the lidar's (its eave + rise over the ground at the middle), pitch within reason
+    const FR = rFront + 0.35, YER = FR + 2.75, RR = Math.min(3.2, Math.max(1.8, G(rmA, (RB0 + RB1) / 2) + (ranch.e || 4.3) + (ranch.r || 1.6) - YER)), gd = G(RA0 - 0.6, RB0 + 5.6);
     const rFrontW = Wall(true, RB0, -1);
-    K.wall(rFrontW, -31.4, RA1, rLo - 0.3, FR + 0.7, [[-26, -25, FR, FR + 2.1]], C(0xd8d2c8), 0, 'plain');
+    K.wall(rFrontW, RA0, RA1, rLo - 0.3, FR + 0.7, [[rmA - 0.5, rmA + 0.5, FR, FR + 2.1]], C(0xd8d2c8), 0, 'plain');
     for (const pa of [PG0 + 0.35, PG1 - 0.35]) K.box(pa - 0.28, pa + 0.28, RB0 - PD + 0.02, RB0 - PD + 0.58, G(pa, RB0 - PD) - 0.2, FR + 0.75, C(0xd8d2c8));
     const st = take(hb, sMark);
     for (let v = 0; v < st.pos.length / 3; v++) { const nx = st.nor[3 * v], ny = st.nor[3 * v + 1], nz = st.nor[3 * v + 2], X = st.pos[3 * v], Y = st.pos[3 * v + 1], Z = st.pos[3 * v + 2];
@@ -215,20 +232,23 @@
 
     // ---------- the house: siding walls, gables, roofs, dormers ----------
     for (const f of later.splice(0)) f();
-    const south = Wall(false, 0, -1), north = Wall(false, A1, 1), back = Wall(true, B1, 1);
-    const aRange = annex.map((b) => { const r = local(K, b.p); return [Math.min(...r.map((q) => q[0])), Math.max(...r.map((q) => q[0]))]; });
+    // the main block's outer (north) end and back, the wing's outer (south) end and back, the wing's side behind the main block
+    const endM = Wall(false, 0, -1), endW = Wall(false, A1, 1), backM = Wall(true, B1m, 1), backW = Wall(true, B1, 1), sideW = Wall(false, pa1, -1);
+    const aRange = addR.map((r) => [Math.min(...r.map((q) => q[0])), Math.max(...r.map((q) => q[0]))]);
     const clear = (c) => !aRange.some((r) => c > r[0] - 1 && c < r[1] + 1);
-    for (const [w, s0, s1, hs] of [[south, fm, B1, [one(fm + 2.1), one(B1 - 2.1)]], [north, fw, B1, [one(fw + 1.9), one((fw + B1) / 2), one(B1 - 1.9)]],
-      [back, 0, A1, [1.6, pa1 - 5.4, pa1 - 2, pa1 + 2.2, A1 - 2.2].filter(clear).map(one)]]) {
+    for (const [w, s0, s1, hs] of [[endM, fm, B1m, [one(fm + 2.1), one(B1m - 2.1)]], [endW, fw, B1, [one(fw + 1.9), one((fw + B1) / 2), one(B1 - 1.9)]],
+      [backM, 0, pa1, [1.6, pa1 - 5.4, pa1 - 2].filter(clear).map(one)], [backW, pa1, A1, [pa1 + 2.2, A1 - 2.2].filter(clear).map(one)]]) {
       K.wall(w, s0, s1, gLo - 0.3, F - 0.05, [], CONC, 0, 'plain'); wallW(w, s0, s1, F - 0.05, YE, hs, SID, F - 0.05, 'siding');
     }
-    K.gable(south, fm, B1, YE, YR, SID, F - 0.05); K.gable(back, pa1, A1, YE, YR, SID, F - 0.05);
-    for (const c of [fm + 2.9, B1 - 2.9]) K.flatWindow(south, c - 0.42, c + 0.42, YE + 0.55, YE + 1.65, 'S1');
-    K.flatWindow(back, aW - 0.45, aW + 0.45, YE + 0.5, YE + 1.6, 'S1');
-    for (const [w, s] of [[south, fm], [south, B1], [north, fw], [north, B1], [back, 0], [back, A1]]) w.box(s - 0.09, s + 0.09, -0.02, 0.06, F - 0.05, YE, TRIM);
+    const yAdd = F + 2.55, hidden = addR.length > annex.length;      // the rear additions' flat roofs; the wing's side wall above the one against it
+    K.wall(sideW, B1m, B1, hidden ? yAdd - 0.1 : gLo - 0.3, YE, [], SID, F - 0.05, 'siding');
+    K.gable(endM, fm, B1m, YE, YR, SID, F - 0.05); K.gable(backW, pa1, A1, YE, YR, SID, F - 0.05);
+    for (const c of [fm + 2.9, B1m - 2.9]) K.flatWindow(endM, c - 0.42, c + 0.42, YE + 0.55, YE + 1.65, 'S1');
+    K.flatWindow(backW, aW - 0.45, aW + 0.45, YE + 0.5, YE + 1.6, 'S1');
+    for (const [w, s] of [[endM, fm], [endM, B1m], [endW, fw], [endW, B1], [backM, 0], [backW, A1], [backW, pa1]]) w.box(s - 0.09, s + 0.09, -0.02, 0.06, F - 0.05, YE, TRIM);
     for (const f of later.splice(0)) f();
     // main roof: ridge along a to the cross gable's ridge; no back overhang where the cross gable's back wall continues the main back wall
-    const rm = groof(K, true, -0.4, aW, fm, B1, YE, RISE, [[[-0.4, aW, 0.4]], [[-0.4, pa1, 0.4], [pa1, aW, 0]]], [0.4, 0], { col: ROOF, gutter: true });
+    const rm = groof(K, true, -0.4, aW, fm, B1m, YE, RISE, [[[-0.4, aW, 0.4]], [[-0.4, pa1, 0.4], [pa1, aW, 0]]], [0.4, 0], { col: ROOF, gutter: true });
     groof(K, false, fw - 0.4, B1 + 0.4, pa1, A1, YE, RISE, [[[fw - 0.4, B1 + 0.4, 0.4]], [[fw - 0.4, B1 + 0.4, 0.4]]], [0.4, 0.4], { col: ROOF, gutter: true });
     // three gabled dormers on the front slope: face 0.7 m up the slope, cheeks and gable in siding, a double-hung window
     const bf = fm + 0.7, yd = YE + 2.15, dr = 1.0;
@@ -255,8 +275,8 @@
     }
     K.box(pa0 + 0.2, pa1, fp + 0.17, fp + 0.43, yF - 0.44, yF - 0.18, WHITE, true);
     // the rear addition: its own footprint, snapped to the back wall, one storey, flat roof with a white fascia
-    for (const b of annex) {
-      const r = local(K, b.p).map((q) => [q[0], Math.abs(q[1] - B1) < 1.2 ? B1 - 0.05 : q[1]]), ya = F + 2.55;
+    for (const rr0 of addR) {
+      const r = rr0.map((q) => [q[0], Math.abs(q[1] - B1m) < 1.2 ? B1m - 0.05 : q[1]]), ya = yAdd;
       K.walls(r, gLo - 0.6, ya, { col: SID, mat: 'siding', base: F - 0.05, win: { w: 0.9, h: 1.3, sills: [F + 0.85], every: 3.4, region: 'S1', min: 3 } });
       K.flat(r, ya, { parapet: 0, col: C(0x4a4c4e) });
       r.forEach((q, i) => { const s = r[(i + 1) % r.length], w = K.Seg(q[0], q[1], s[0], s[1]); w.box(-0.04, w.L + 0.04, 0, 0.05, ya - 0.25, ya + 0.06, TRIM); });
@@ -276,60 +296,75 @@
       for (const [da, db, dy, rx, ry] of [[0, 0, 2.3, 1.9, 0.9], [0.9, -0.6, 1.9, 1.2, 0.7], [-0.9, 0.5, 2.0, 1.3, 0.75], [0.2, 0.7, 2.9, 1.2, 0.7], [-0.5, -0.8, 2.6, 1.1, 0.6]])
         blob(hb, P(ma + da, mbb + db, g + dy), [rx, ry, rx * 0.9], C(red[(da * 7 + 9 | 0) % 4]), (da * 13 | 0) + 40);
       circ.push(p[0], p[2], 0.25); }
-    { const ta = A1 + 5, tb = 4.2, tg = G(ta, tb);
+    { const ta = A1 + 4.2, tb = 4.2, tg = G(ta, tb);
       for (const da of [-0.85, 0.85]) K.box(ta + da - 0.2, ta + da + 0.2, tb - 0.3, tb + 0.3, tg - 0.1, tg + 0.32, CONC);
       tank(K, ta - 1.45, ta + 1.45, tb, tg + 0.85, 0.52, C(0xeceae4)); K.box(ta - 0.15, ta + 0.15, tb - 0.15, tb + 0.15, tg + 1.35, tg + 1.5, C(0x9a9a96));
       for (const da of [-0.8, 0.8]) { const p = P(ta + da, tb, 0); circ.push(p[0], p[2], 0.6); } }
 
-    // ---------- the pole building between the two houses: white steel, grey metal roof, overhead door to the gravel strip ----------
-    const QA0 = -15, QA1 = -3, QB0 = -21, QB1 = -12;
-    let qLo = 1e9; for (let a = QA0; a <= QA1; a += 3) for (let b = QB0; b <= QB1; b += 3) qLo = Math.min(qLo, G(a, b));
-    const qF = G(QA1 + 0.5, (QB0 + QB1) / 2) + 0.08, qE = qF + 3.3, STEEL = C(0xf1f1ec);
-    const qr = [[QA0, QB0], [QA1, QB0], [QA1, QB1], [QA0, QB1]], qw = qr.map((q, i) => K.Seg(q[0], q[1], qr[(i + 1) % 4][0], qr[(i + 1) % 4][1]));
-    qw.forEach((w, i) => {
-      K.wall(w, 0, w.L, qLo - 0.3, qF + 0.15, [], CONC, 0, 'plain');
-      const hs = i === 1 ? [[2.2, 5.3, qF, qF + 2.75], [6.6, 7.5, qF, qF + 2.05]] : i === 0 ? [[3.0, 3.9, qF + 1.2, qF + 2.1], [8.1, 9.0, qF + 1.2, qF + 2.1]] : [];
-      K.wall(w, 0, w.L, qF + 0.15, qE, hs, STEEL, 0, 'plain');
-      for (let s = 0.45; s < w.L; s += 0.9) if (!hs.some((h) => s > h[0] - 0.05 && s < h[1] + 0.05)) w.box(s - 0.02, s + 0.02, 0, 0.025, qF + 0.15, qE - 0.05, C(0xd9d9d4));
-      w.box(-0.06, 0.12, -0.01, 0.07, qF + 0.1, qE, C(0xdcdcd6));
-      if (i === 1) { K.opening(w, 2.2, 5.3, qF, qF + 2.75, 'PLN', { door: true, col: C(0xf6f6f2) }); for (let j = 1; j < 5; j++) w.box(2.2, 5.3, -0.06, -0.035, qF + j * 0.55, qF + j * 0.55 + 0.03, C(0xc4c4be));
-        K.opening(w, 6.6, 7.5, qF, qF + 2.05, 'DOOR', { door: true, col: C(0xeeeeea) }); lamp(K, w, 3.75, qF + 3.0); }
-      if (i === 0) for (const s of [3.0, 8.1]) K.opening(w, s, s + 0.9, qF + 1.2, qF + 2.1, 'S1');
-      if (i % 2) K.gable(w, 0, w.L, qE, qE + 1.5, STEEL, qE, 'plain');
-      segs.push(...(() => { const p = K.P(qr[i][0], qr[i][1], 0), q = K.P(qr[(i + 1) % 4][0], qr[(i + 1) % 4][1], 0); return [p[0], p[2], q[0], q[2]]; })());
+    // ---------- the pole building between the two houses: band building 27, set back behind them (its L outline: a 30 m barn, 8.5 m wide,
+    // and a lean-to on its south-east), white steel, the grey metal roof at the lidar's eave and rise (the lean-to under its south slope
+    // carried on down), the overhead door in its west end to the gravel. Its own frame (u across, v along the barn, about 2 deg off this one).
+    const qp = local(K, pole.p); let vL = 0, vd = null;
+    qp.forEach((q, i) => { const r = qp[(i + 1) % qp.length], L = Math.hypot(r[0] - q[0], r[1] - q[1]); if (L > vL) { vL = L; vd = [(r[0] - q[0]) / L, (r[1] - q[1]) / L]; } });
+    if (vd[1] < 0) vd = [-vd[0], -vd[1]];
+    const ud = [vd[1], -vd[0]], uvOf = (q) => [q[0] * ud[0] + q[1] * ud[1], q[0] * vd[0] + q[1] * vd[1]], quv = qp.map(uvOf);
+    const u0 = Math.min(...quv.map((q) => q[0])), v0 = Math.min(...quv.map((q) => q[1])), uE = Math.max(...quv.map((q) => q[0])) - u0, Lm = Math.max(...quv.map((q) => q[1])) - v0;
+    const wM = Math.max(...quv.filter((q) => q[1] - v0 < Lm / 2).map((q) => q[0])) - u0, vE = Math.min(...quv.filter((q) => q[0] - u0 > wM + 0.5).map((q) => q[1])) - v0;
+    if (!(wM > 5 && uE - wM > 1 && vE > 5 && vE < Lm - 2)) throw new Error('us231: expected building 27 as an L (the barn and its lean-to)');
+    const ab = (u, v) => [(u + u0) * ud[0] + (v + v0) * vd[0], (u + u0) * ud[1] + (v + v0) * vd[1]];
+    const V = Object.assign({}, K, { P: (u, v, y) => { const q = ab(u, v); return P(q[0], q[1], y); }, N: (du, dv, dy) => N(du * ud[0] + dv * vd[0], du * ud[1] + dv * vd[1], dy) });
+    const UV = [[0, 0], [wM, 0], [wM, vE], [uE, vE], [uE, Lm], [0, Lm]], dc = wM / 2 - 0.7;      // the overhead door's middle (u)
+    let qLo = 1e9; for (const q of UV) qLo = Math.min(qLo, G(...ab(q[0], q[1])));
+    const qF = G(...ab(dc, -1)) + 0.08, qR = pole.r > 0.5 ? pole.r : 1.6, qE = Math.max(qF + 3, G(...ab(wM / 2, Lm / 2)) + (pole.e || 3.7)), kq = qR / (wM / 2), yLean = qE - (uE - wM) * kq, STEEL = C(0xf1f1ec);
+    UV.forEach((q, i) => {
+      const r = UV[(i + 1) % 6], p0 = ab(q[0], q[1]), p1 = ab(r[0], r[1]), w = K.Seg(p0[0], p0[1], p1[0], p1[1]), L = w.L, sl = uE - wM;
+      // the wall's top at s: the barn's eave, the lean-to's eave, or sloping with the lean-to's roof (its west face, the east end over it)
+      const top = (s) => i === 2 ? qE + (yLean - qE) * s / L : i === 3 ? yLean : i === 4 ? (s < sl ? yLean + (qE - yLean) * s / sl : qE) : qE;
+      const hs = i === 0 ? [[dc - 1.55, dc + 1.55, qF, qF + 2.75], [wM - 1.75, wM - 0.85, qF, qF + 2.05]] : i === 1 ? [[4, 4.9, qF + 1.2, qF + 2.1], [L - 4.9, L - 4, qF + 1.2, qF + 2.1]]
+        : i === 5 ? [0.25, 0.5, 0.75].map((t) => [L * t - 0.45, L * t + 0.45, qF + 1.2, qF + 2.1]) : [];
+      K.wall(w, 0, L, qLo - 0.3, qF + 0.15, [], CONC, 0, 'plain');
+      if (i === 2) { K.wall(w, 0, L, qF + 0.15, yLean, [], STEEL, 0, 'plain'); K.skin(w, [[0, yLean], [L, yLean], [0, qE]], STEEL, 0, 'plain'); }
+      else if (i === 4) { K.wall(w, 0, L, qF + 0.15, yLean, [], STEEL, 0, 'plain'); K.skin(w, [[0, yLean], [sl, yLean], [sl, qE]], STEEL, 0, 'plain'); K.wall(w, sl, L, yLean, qE, [], STEEL, 0, 'plain'); K.gable(w, sl, L, qE, qE + qR, STEEL, qE, 'plain'); }
+      else K.wall(w, 0, L, qF + 0.15, top(0), hs, STEEL, 0, 'plain');
+      for (let s = 0.45; s < L; s += 0.9) if (!hs.some((h) => s > h[0] - 0.05 && s < h[1] + 0.05)) w.box(s - 0.02, s + 0.02, 0, 0.025, qF + 0.15, top(s) - 0.05, C(0xd9d9d4));
+      w.box(-0.06, 0.12, -0.01, 0.07, qF + 0.1, top(0), C(0xdcdcd6));
+      if (i === 0) { K.opening(w, dc - 1.55, dc + 1.55, qF, qF + 2.75, 'PLN', { door: true, col: C(0xf6f6f2) }); for (let j = 1; j < 5; j++) w.box(dc - 1.55, dc + 1.55, -0.06, -0.035, qF + j * 0.55, qF + j * 0.55 + 0.03, C(0xc4c4be));
+        K.opening(w, wM - 1.75, wM - 0.85, qF, qF + 2.05, 'DOOR', { door: true, col: C(0xeeeeea) }); lamp(K, w, dc, qF + 3.0); K.gable(w, 0, L, qE, qE + qR, STEEL, qE, 'plain'); }
+      for (const h of hs) if (h[2] > qF + 1) K.opening(w, h[0], h[1], h[2], h[3], 'S1');
     });
-    groof(K, true, QA0 - 0.3, QA1 + 0.3, QB0, QB1, qE, 1.5, [[[QA0 - 0.3, QA1 + 0.3, 0.3]], [[QA0 - 0.3, QA1 + 0.3, 0.3]]], [0.3, 0.3], { metal: true, col: C(0x8e9497) });
-    rects.push(qr);
+    groof(V, false, -0.3, Lm + 0.3, 0, wM, qE, qR, [[[-0.3, Lm + 0.3, 0.3]], [[-0.3, vE, 0.3], [vE, Lm + 0.3, uE - wM + 0.3]]], [0.3, 0.3], { metal: true, col: C(0x8e9497) });
+    info.pole = { wM: +wM.toFixed(1), uE: +uE.toFixed(1), vE: +vE.toFixed(1), Lm: +Lm.toFixed(1), qF: +qF.toFixed(2), qE: +qE.toFixed(2) };
 
     // ---------- the ranch next door ----------
     const RSID = C(0xf2f1ec), RROOF = new T.Color(1.75, 1.88, 2.1), rr = [[RA0, RB0], [RA1, RB0], [RA1, RB1], [RA0, RB1]], rw = rr.map((q, i) => K.Seg(q[0], q[1], rr[(i + 1) % 4][0], rr[(i + 1) % 4][1]));
-    const rs = FR + 0.7, rh = FR + 2.15, rwin = (c, w2) => [c - w2, c + w2, rs + 0.1, rh, w2 > 0.6 ? 2 : 1];
-    // front (RB0, s = a - RA0): garage door, the door under the porch, windows; ends and back plainer
-    const rHoles = [[[1.1, 6.3, gd, gd + 2.25, 1, (w) => { K.opening(w, 1.1, 6.3, gd, gd + 2.25, 'PLN', { door: true, col: C(0xf6f6f2) }); for (let j = 1; j < 4; j++) w.box(1.1, 6.3, -0.06, -0.035, gd + j * 0.56, gd + j * 0.56 + 0.03, C(0xc8c8c2)); lamp(K, w, 0.6, gd + 2.0); }],
-      rwin(9.3, 0.85), [12.0, 13.0, FR, FR + 2.1, 1, (w) => { K.opening(w, 12.0, 13.0, FR, FR + 2.1, 'DOOR', { door: true, col: C(0x2f3236) }); lamp(K, w, 13.35, FR + 1.75); }], rwin(16.6, 0.85)],
-      [rwin(3.0, 0.5), rwin(8.0, 0.5)], [rwin(4.0, 0.85), rwin(10.0, 0.5), rwin(15.5, 0.85)], [rwin(3.5, 0.5), rwin(8.5, 0.5)]];
+    const rs = FR + 0.7, rh = FR + 2.15, rwin = (c, w2) => [c - w2, c + w2, rs + 0.1, rh, w2 > 0.6 ? 2 : 1], RD = RB1 - RB0, gs0 = RD - 8.2, gs1 = RD - 3;
+    // front (RB0, s = a - RA0): windows either side of the door under the porch; the garage door in the north wall (s = RB1 - b) to the
+    // concrete pad; the south side (to the house) and the back plainer
+    const rHoles = [[rwin(2.3, 0.85), [RL / 2 - 0.5, RL / 2 + 0.5, FR, FR + 2.1, 1, (w) => { K.opening(w, RL / 2 - 0.5, RL / 2 + 0.5, FR, FR + 2.1, 'DOOR', { door: true, col: C(0x2f3236) }); lamp(K, w, RL / 2 + 0.85, FR + 1.75); }], rwin(RL - 2.3, 0.85)],
+      [rwin(3.0, 0.5), rwin(RD / 2, 0.85), rwin(RD - 3.0, 0.5)], [rwin(3.0, 0.85), rwin(RL - 3.0, 0.5)],
+      [[gs0, gs1, gd, gd + 2.25, 1, (w) => { K.opening(w, gs0, gs1, gd, gd + 2.25, 'PLN', { door: true, col: C(0xf6f6f2) }); for (let j = 1; j < 4; j++) w.box(gs0, gs1, -0.06, -0.035, gd + j * 0.56, gd + j * 0.56 + 0.03, C(0xc8c8c2)); lamp(K, w, gs1 + 0.5, gd + 2.0); }], rwin(2.6, 0.5)]];
     rw.forEach((w, i) => {
-      const hs = rHoles[i]; if (i !== 0) K.wall(w, 0, w.L, rLo - 0.3, FR - 0.05, [], CONC, 0, 'plain');
+      const hs = rHoles[i]; if (i !== 0) K.wall(w, 0, w.L, rLo - 0.3, FR - 0.05, i === 3 ? [hs[0].slice(0, 4)] : [], CONC, 0, 'plain');
       wallW(w, 0, w.L, i === 0 ? FR + 0.7 : FR - 0.05, YER, hs, RSID, FR - 0.05, 'siding');
-      if (i === 0) K.wall(w, 0, 6.6, rLo - 0.3, FR + 0.7, [[1.1, 6.3, gd, gd + 2.25]], RSID, FR - 0.05, 'siding');
-      if (i % 2) K.gable(w, 0, w.L, YER, YER + 2.75, RSID, FR - 0.05);
+      if (i % 2 === 0) K.gable(w, 0, w.L, YER, YER + RR, RSID, FR - 0.05);      // the lidar's ridge runs front to back
       w.box(-0.09, 0.09, -0.02, 0.06, i === 0 ? FR + 0.7 : FR - 0.05, YER, TRIM);
-      const p = K.P(rr[i][0], rr[i][1], 0), q = K.P(rr[(i + 1) % 4][0], rr[(i + 1) % 4][1], 0); segs.push(p[0], p[2], q[0], q[2]);
     });
     for (const f of later.splice(0)) f();
-    groof(K, true, RA0 - 0.35, RA1 + 0.35, RB0, RB1, YER, 2.75, [[[RA0 - 0.35, RA1 + 0.35, 0.35]], [[RA0 - 0.35, RA1 + 0.35, 0.35]]], [0.35, 0.35], { col: RROOF, gutter: true });
-    // the porch under a front gable: slab, two tapered white columns on the ledgestone piers, craftsman trim in the gable
-    const pm = (PG0 + PG1) / 2, pr = 1.85, yP = YER, pSlab = FR - 0.12;
+    groof(K, false, RB0 - 0.35, RB1 + 0.35, RA0, RA1, YER, RR, [[[RB0 - 0.35, RB1 + 0.35, 0.35]], [[RB0 - 0.35, RB1 + 0.35, 0.35]]], [0.35, 0.35], { col: RROOF, gutter: true });
+    // the porch under its own front gable nested in the house's: slab, two tapered white columns on the ledgestone piers, craftsman trim in
+    // both gables (beam, king post, braces; corbels under the big gable's eaves)
+    const pm = rmA, pr = Math.min(1.6, RR - 0.5), yP = YER, pSlab = FR - 0.12;
     K.box(PG0, PG1, RB0 - PD, RB0, rLo - 0.2, pSlab, C(0xbab6ac));
-    const pEnd = RB0 + pr / 0.5 + 0.05;      // where the porch ridge dies into the main roof (pitch 0.5)
-    groof(K, false, RB0 - PD - 0.3, pEnd, PG0, PG1, yP, pr, [[[RB0 - PD - 0.3, pEnd, 0.3]], [[RB0 - PD - 0.3, pEnd, 0.3]]], [0.3, 0], { col: RROOF });
+    groof(K, false, RB0 - PD - 0.3, RB0 + 0.05, PG0, PG1, yP, pr, [[[RB0 - PD - 0.3, RB0 + 0.05, 0.3]], [[RB0 - PD - 0.3, RB0 + 0.05, 0.3]]], [0.3, 0], { col: RROOF });
     const pf = Wall(true, RB0 - PD, -1);
     K.gable(pf, PG0, PG1, yP - 0.02, yP + pr - 0.05, RSID, yP);
     pf.box(PG0, PG1, -0.02, 0.2, yP - 0.32, yP, TRIM, true); pf.box(pm - 0.08, pm + 0.08, 0, 0.12, yP, yP + pr - 0.25, TRIM);
     for (const s of [-1, 1]) { const x0 = pm + s * 0.1, x1 = pm + s * 1.3; K.poly(hb, [pf.pt(x0, 0.05, yP + 0.9), pf.pt(x1, 0.05, yP + 0.02), pf.pt(x1, 0.05, yP + 0.14), pf.pt(x0, 0.05, yP + 1.02)], pf.n, TRIM); }
+    if (RR - pr > 0.9) rw[0].box(RL / 2 - 0.08, RL / 2 + 0.08, 0, 0.12, yP + pr + 0.3, YER + RR - 0.3, TRIM);
+    for (const s of [0.12, RL - 0.12]) rw[0].box(s - 0.08, s + 0.08, 0, 0.32, YER - 0.55, YER - 0.04, TRIM);
     for (const pa of [PG0 + 0.35, PG1 - 0.35]) { K.box(pa - 0.16, pa + 0.16, RB0 - PD + 0.14, RB0 - PD + 0.46, FR + 0.75, FR + 1.5, WHITE); K.box(pa - 0.12, pa + 0.12, RB0 - PD + 0.18, RB0 - PD + 0.42, FR + 1.5, yP - 0.3, WHITE);
       const p = P(pa, RB0 - PD + 0.3, 0); circ.push(p[0], p[2], 0.32); }
-    rects.push(rr);
+    info.ranch = { RA0: +RA0.toFixed(1), RB0: +RB0.toFixed(1), FR: +FR.toFixed(2), RR: +RR.toFixed(2), gd: +gd.toFixed(2) };
 
     // ---------- drives (gravel to the house and the pole building, concrete to the ranch), the apron, the mailbox ----------
     const route = AR.route, rl = []; for (let q = 0; q < route.X.length; q++) { const l = K.toLocal(route.X[q], route.Z[q]); if (l[0] > -120 && l[0] < 120) rl.push(l); }
@@ -345,15 +380,17 @@
       const s = []; let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const p of pts) { const w = P(p[0], p[1], 0); s.push(w[0], w[2], p[2]); x0 = Math.min(x0, w[0] - p[2]); x1 = Math.max(x1, w[0] + p[2]); z0 = Math.min(z0, w[2] - p[2]); z1 = Math.max(z1, w[2] + p[2]); }
       drives.push({ s, m, x0, x1, z0, z1 }); return pts;
     };
-    const DM = 28, eM = edgeAt(DM), eR = edgeAt(-26);      // the two drive mouths (a)
-    drive([[DM, eM - 0.3, 1.75], [DM - 0.3, eM + 7, 1.75], [26.3, -57, 1.75], [24.2, -47.5, 1.75], [21.8, -37.5, 1.75], [21.4, -28, 1.75], [22.6, -18, 1.75], [21.6, -10.6, 1.8], [18, -6.4, 1.8], [12, -5.5, 1.75], [5, -5.6, 1.75], [2.7, -7.8, 1.75], [2.1, -11, 1.75], [1.2, -14.6, 1.8], [-1.0, -16.5, 2.0], [-3.1, -16.5, 2.0]],
+    // the gravel: south of the house (right, seen from the road) up between the sycamores, along the front, round the north end to the
+    // pole building's door; the concrete: from the road north of it (left) up the hill to the pad by the ranch's garage door
+    const DM = 28, eM = edgeAt(DM), RM = -33, eR = edgeAt(RM), pd0 = ab(dc, -0.3), pd1 = ab(dc, -5);      // the drive mouths (a); the barn door
+    const gpts = drive([[DM, eM - 0.3, 1.75], [DM - 0.2, eM + 6, 1.75], [28.3, -31, 1.75], [28.5, -22, 1.75], [26.8, -13.5, 1.75], [22.8, -8.9, 1.8], [17, -7.3, 1.75], [10, -7.2, 1.75], [3, -7.2, 1.75], [-2.8, -6.6, 1.8], [-6.4, -2, 1.9], [-7.2, 8, 1.9], [-7.6, 18, 1.9], [pd1[0], pd1[1], 2.0], [pd0[0], pd0[1], 2.2]],
       2, [[-1, -0.6, GRAV], [-0.6, -0.25, TRACK], [-0.25, 0.25, GRAV], [0.25, 0.6, TRACK], [0.6, 1, GRAV]], 0.1);
     drive([[DM, eM - 0.2, 3.8], [DM - 0.1, eM + 2.5, 2.6], [DM - 0.2, eM + 5.5, 1.95]], 5, [[-1, -0.86, BRICK], [-0.86, 0.86, ASPH], [0.86, 1, BRICK]], 0.12, 0.7);
-    const cpts = drive([[-26, eR - 0.3, 1.9], [-26.4, eR + 9, 1.9], [-28, -62, 1.9], [-31, -52, 1.95], [-33.6, -45, 2.3], [-34.3, -41.2, 2.9], [-34.3, RB0 - 0.1, 2.9]], 5, [[-1, 1, CONCD]], 0.1);
+    const cpts = drive([[RM, eR - 0.3, 1.9], [RM - 0.4, eR + 7, 1.9], [-35.6, -36, 1.9], [-39.4, -24, 1.95], [-40.6, -10, 2.0], [-42.6, 3, 2.2], [RA0 - 3.2, RB0 - 3, 2.6], [RA0 - 3.2, RB0 + 2, 2.9], [RA0 - 3.2, RB0 + 9, 2.9]], 5, [[-1, 1, CONCD]], 0.1);
     for (let i = 3, d = 0; i < cpts.length; i++) { d += Math.hypot(cpts[i][0] - cpts[i - 1][0], cpts[i][1] - cpts[i - 1][1]); if (d < 3.2) continue; d = 0;      // control joints
       const p = cpts[i], q = cpts[i - 1], L = Math.hypot(p[0] - q[0], p[1] - q[1]) || 1, ua = (p[0] - q[0]) / L, ub = (p[1] - q[1]) / L, w = p[2];
       drape(K, W, gb, [[p[0] + ub * w, p[1] - ua * w], [p[0] + ub * w + ua * 0.05, p[1] - ua * w + ub * 0.05], [p[0] - ub * w + ua * 0.05, p[1] + ua * w + ub * 0.05], [p[0] - ub * w, p[1] + ua * w]], C(0x8f8b83), 0.108); }
-    drape(K, W, gb, [[door - 0.6, -4.2], [door + 0.6, -4.2], [door + 0.6, fp - 0.2], [door - 0.6, fp - 0.2]], C(0xbab6ac), 0.1);      // the walk to the strip
+    drape(K, W, gb, [[door - 0.6, -5.5], [door + 0.6, -5.5], [door + 0.6, fp - 0.2], [door - 0.6, fp - 0.2]], C(0xbab6ac), 0.1);      // the walk to the strip
     // the double mailbox on its square post, north of the mouth, a small blue plaque (no number) on the post
     { const ma = DM + 3.2, mb2 = eM + 1.6, g = G(ma, mb2), p = P(ma, mb2, 0);
       K.box(ma - 0.06, ma + 0.06, mb2 - 0.06, mb2 + 0.06, g - 0.2, g + 1.12, WHITE); K.box(ma - 0.42, ma + 0.42, mb2 - 0.07, mb2 + 0.07, g + 1.0, g + 1.1, WHITE);
@@ -378,20 +415,22 @@
       } }
 
     // ---------- lidar trees standing on the new buildings or drives: hidden ----------
-    // ponytail: a hidden tree keeps routes.js's 0.45 m trunk circle (sealed in its strip grid); only trees inside the new buildings are hidden
-    // today (treesOnDrives counts any on a drive), so the circles stay inside solid walls; a skip list in routes.js if a drive ever crosses one
-    const onSite = (a, b) => rects.some((r) => a > r[0][0] - 1 && a < r[1][0] + 1 && b > r[0][1] - 1 && b < r[2][1] + 1);
+    // ponytail: a hidden tree keeps routes.js's 0.45 m trunk circle (sealed in its strip grid); the drives are laid round the lidar trunks
+    // (treesOnDrives counts any on one: 0 today), so only trees inside the footprints would go, inside solid walls, and the one 6 m lidar
+    // tree in the bed before the entry (the screenshots show only shrubs there and the maple at the corner): its trunk circle stays in the
+    // bed, a shrub to the tyres; a skip list in routes.js if a drive ever must cross one
+    const rings = [hp, ranch.p, pole.p].concat(annex.map((b) => b.p)), onSite = (X, Z, l) => rings.some((r) => inPoly(r, X, -Z)) || (l[0] > -1 && l[0] < A1 + 1 && l[1] > fp - 2 && l[1] < fw);
     const onD = (d, X, Z, m) => { if (X < d.x0 - m || X > d.x1 + m || Z < d.z0 - m || Z > d.z1 + m) return false; const s = d.s; for (let q = 0; q + 5 < s.length; q += 3) if (segD(X, Z, s[q], s[q + 1], s[q + 3], s[q + 4]) < s[q + 2] + m) return true; return false; };
     const onDrive = (X, Z, m) => drives.some((d) => onD(d, X, Z, m));
     let hid = 0, drv = 0;
     for (const m of scene.children) { if (m.name !== 'rt:tree') continue; const a = m.instanceMatrix.array; let n = 0;
       for (let q = 0; q < m.count; q++) { const X = a[16 * q + 12], Z = a[16 * q + 14], l = K.toLocal(X, Z); if (Math.abs(l[0]) > 160 || Math.abs(l[1]) > 160 || !a[16 * q + 5]) continue;
-        const d = onDrive(X, Z, 0.8); if (onSite(l[0], l[1]) || d) { a.fill(0, 16 * q, 16 * q + 16); n++; hid++; if (d) drv++; } }
+        const d = onDrive(X, Z, 0.8); if (onSite(X, Z, l) || d) { a.fill(0, 16 * q, 16 * q + 16); n++; hid++; if (d) drv++; } }
       if (n) m.instanceMatrix.needsUpdate = true; }
     info.treesHidden = hid; info.treesOnDrives = drv;
 
-    // ---------- routes.js's plain shells of the house and its addition fold away ----------
-    const rings = [hp].concat(annex.map((b) => b.p)), hx = K.P(A1 / 2, B1 / 2, 0);
+    // ---------- routes.js's plain shells of the house, its addition, the ranch and the pole building fold away ----------
+    const hx = K.P(A1 / 2, B1 / 2, 0);
     for (const m of scene.children) {
       if (m.name !== 'rt:bldg' || !m.geometry || !m.geometry.index) continue;
       const g = m.geometry; if (!g.boundingSphere) g.computeBoundingSphere();
@@ -423,17 +462,15 @@
       const p = cam.position, d = Math.hypot(p.x - cx, p.z - cz), band = Math.abs(p.x) > W.HALF || Math.abs(p.z) > W.HALF || p.z > W.HALF - 600, v = band && d < 1600 ? (d < 350 ? 2 : 1) : 0; if (v !== on) { on = v; for (const m of ms) m.visible = v > (m.material === lMat ? 1 : 0); }
     });
 
-    // ---------- the tyres and the camera: drives and the new buildings in W.maskAt; their solids in W.collide ----------
-    // ponytail: the minimap (routes.js's band canvas) shows neither the drives nor the two new buildings; draw them on R.map if it matters
-    const rw2 = rects.map((r) => r.map((q) => { const p = P(q[0], q[1], 0); return [p[0], -p[2]]; }).flat());
+    // ---------- the tyres: the drives in W.maskAt; the posts, mailbox, tank and maple in W.collide (all four buildings are band footprints:
+    // routes.js already makes them solid and building (4) in its mask) ----------
+    // ponytail: the minimap (routes.js's band canvas) does not show the drives; draw them on R.map if it matters
     let bx0 = 1e9, bx1 = -1e9, bz0 = 1e9, bz1 = -1e9; for (const d of drives) { bx0 = Math.min(bx0, d.x0); bx1 = Math.max(bx1, d.x1); bz0 = Math.min(bz0, d.z0); bz1 = Math.max(bz1, d.z1); }
-    for (const r of rw2) for (let q = 0; q < r.length; q += 2) { bx0 = Math.min(bx0, r[q]); bx1 = Math.max(bx1, r[q]); bz0 = Math.min(bz0, -r[q + 1]); bz1 = Math.max(bz1, -r[q + 1]); }
     for (let q = 0; q < circ.length; q += 3) { bx0 = Math.min(bx0, circ[q] - 1); bx1 = Math.max(bx1, circ[q] + 1); bz0 = Math.min(bz0, circ[q + 1] - 1); bz1 = Math.max(bz1, circ[q + 1] + 1); }
     drives.sort((p, q) => q.m - p.m);      // the apron (pavement) wins over the gravel under it
     const m0 = W.maskAt;
     W.maskAt = (X, Z) => {
       if (X < bx0 || X > bx1 || Z < bz0 || Z > bz1) return m0(X, Z);
-      for (const r of rw2) if (inPoly(r, X, -Z)) return 4;
       for (const d of drives) if (onD(d, X, Z, 0)) return d.m;
       return m0(X, Z);
     };
@@ -444,11 +481,11 @@
         const a = c0(X, Z, r); if (X < bx0 - 8 || X > bx1 + 8 || Z < bz0 - 8 || Z > bz1 + 8) return a;
         hit.depth = 0;
         for (let q = 0; q < circ.length; q += 3) { const dx = X - circ[q], dz = Z - circ[q + 1], d = Math.hypot(dx, dz), pen = r + circ[q + 2] - d; if (pen > hit.depth && d > 1e-4) { hit.depth = pen; hit.nx = dx / d; hit.nz = dz / d; } }
-        for (let q = 0; q < segs.length; q += 4) { const ax = segs[q], az = segs[q + 1], ex = segs[q + 2] - ax, ez = segs[q + 3] - az, t = Math.max(0, Math.min(1, ((X - ax) * ex + (Z - az) * ez) / (ex * ex + ez * ez || 1))), dx = X - ax - ex * t, dz = Z - az - ez * t, d = Math.hypot(dx, dz), pen = r - d;
-          if (pen > hit.depth && d > 1e-4) { hit.depth = pen; hit.nx = dx / d; hit.nz = dz / d; } }
         return hit.depth > 0 && (!a || hit.depth > a.depth) ? hit : a;
       };
     };
+    info.plan = { A1: +A1.toFixed(2), B1m: +B1m.toFixed(2), B1: +B1.toFixed(2), fw: +fw.toFixed(2), pa0: +pa0.toFixed(2), pa1: +pa1.toFixed(2), aStep: +aStep.toFixed(2), F: +F.toFixed(2), eM: +eM.toFixed(1), eR: +eR.toFixed(1) };
+    info.drive = gpts.filter((p, i) => i % 6 === 0).map((p) => { const w = P(p[0], p[1], 0); return [+w[0].toFixed(1), +(-w[2]).toFixed(1), +p[0].toFixed(1), +p[1].toFixed(1)]; });
     K.result.info = info;
   }
 

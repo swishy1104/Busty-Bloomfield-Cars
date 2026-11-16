@@ -483,7 +483,7 @@
     // on SR 54 over the White River into W Main St, through downtown, right on S Washington St, south on US 231; a gate on that path at every
     // turn and bend (30 m Douglas-Peucker) and at least every 1.4 km. Third element 1: kept as is, not snapped to a road (the start, where the
     // route meets the lot exit, which the nearest-road snap would move 20 m along A St; the finish, up the house's gravel drive)
-    { id: 'p-taco', name: 'Taco Bell Run', sub: 'Linton to US 231', laps: 0, pts: [[-18088, 1235, 1], [-18058, 1240, 1], [-18058, 1257, 1], [-17392.1, 1393.1], [-16104.3, 1329.7], [-14834.5, 1324.5], [-13569.6, 1328.9], [-12299.7, 1329.5], [-11034.9, 1318.2], [-10524.7, 1030.4], [-9518.8, 924.2], [-8363.9, 926], [-7214.4, 922.9], [-6647.2, 659.5], [-5291.7, 337.5], [-4477.6, 299.2], [-3663.4, 271.4], [-2899.8, 195.1], [-2142.5, 91.8], [-1045.1, 79.3], [49.7, 55.3], [53.1, -516.5], [420.4, -1428.3], [602.4, -2550.3], [578, -2552, 1], [552, -2556, 1], [531, -2563, 1]] },
+    { id: 'p-taco', name: 'Taco Bell Run', sub: 'Linton to US 231', laps: 0, pts: [[-18088, 1235, 1], [-18058, 1240, 1], [-18058, 1257, 1], [-17392.1, 1393.1], [-16104.3, 1329.7], [-14834.5, 1324.5], [-13569.6, 1328.9], [-12299.7, 1329.5], [-11034.9, 1318.2], [-10524.7, 1030.4], [-9518.8, 924.2], [-8363.9, 926], [-7214.4, 922.9], [-6647.2, 659.5], [-5291.7, 337.5], [-4477.6, 299.2], [-3663.4, 271.4], [-2899.8, 195.1], [-2142.5, 91.8], [-1045.1, 79.3], [49.7, 55.3], [53.1, -516.5], [420.4, -1428.3], [611.3, -2606.0], [631.3, -2605.4, 1], [648.7, -2603.0, 1], [654.3, -2587.3, 1]] },
   ];
   let courses = [], race = null, ghost = null, beams = [];
   const bests = store.get('bests', {}), ghosts = store.get('ghosts', {});
