@@ -26,6 +26,7 @@ then open http://localhost:8000/ in Chrome, Edge or Firefox. Or `npx serve .` if
 
 Keyboard: W/S or arrows gas and brake, A/D steer, Space handbrake, E/Q shift (manual gearbox), C camera, R reset, Esc menu.
 In the desktop app, click **Exit Game** or press Esc on the main menu, including while the map loads.
+Open Options to enter or exit fullscreen. Esc leaves fullscreen first.
 Gamepad: left stick steer, triggers gas and brake, A handbrake, bumpers shift, Y camera, B reset, Start pause. A pad with a
 layout the browser does not know is set up once in Options > Controller > Set up buttons.
 

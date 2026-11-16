@@ -39,7 +39,7 @@ const desktopScript = `<script>
   exit.hidden = false;
   exit.addEventListener('click', () => window.close());
   window.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape' || event.repeat || title.hidden) return;
+    if (event.key !== 'Escape' || event.repeat || title.hidden || document.fullscreenElement) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     window.close();

@@ -188,6 +188,11 @@
   // ------------------------------------------------------------------ input
   const GAME_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'];
   addEventListener('keydown', (e) => {
+    if (e.code === 'Escape' && document.fullscreenElement) {
+      e.preventDefault();
+      if (!e.repeat) setFullscreen(false);
+      return;
+    }
     if (e.target && e.target.tagName === 'INPUT') { if (e.code === 'Escape') e.target.blur(); return; }
     const onBtn = (mode === 'title' || panel) && document.activeElement && document.activeElement.matches('button:focus-visible');     // menus: Space/Enter press a button reached by keyboard or pad
     if (GAME_KEYS.includes(e.code) && !onBtn) e.preventDefault();
@@ -651,6 +656,22 @@
     }
   }
   $('bPadSetup').onclick = padSetupStart; $('bPadStd').onclick = () => { padMap = null; store.set('padMap', null); padOptText(); toast('Standard controller layout'); }; padOptText();
+  const bFullscreen = $('bFullscreen'), fullscreenStatus = $('fullscreenStatus');
+  bFullscreen.parentElement.hidden = !document.fullscreenEnabled;
+  async function setFullscreen(enabled) {
+    fullscreenStatus.hidden = true;
+    try {
+      if (enabled) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+      else await document.exitFullscreen();
+    } catch (e) {
+      fullscreenStatus.textContent = 'Could not change fullscreen mode.';
+      fullscreenStatus.hidden = false;
+    }
+  }
+  bFullscreen.onclick = () => setFullscreen(!document.fullscreenElement);
+  document.addEventListener('fullscreenchange', () => {
+    bFullscreen.textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Enter fullscreen';
+  });
   seg('segQuality', S.quality, (v) => { autoQ = false; S.quality = +v; store.set('quality', S.quality); applyQuality(); });
   seg('segAssist', S.assist ? 1 : 0, (v) => { S.assist = v === '1'; store.set('assist', S.assist); });
   seg('segTime', S.tod, (v) => { S.tod = v; store.set('tod', v); renderer.toneMappingExposure = W.setTime(v); if (view && view.setLights) view.setLights(v === 'dusk'); });
