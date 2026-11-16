@@ -211,7 +211,7 @@
   let padName = null, padMap = store.get('padMap', null), padSetup = null;      // padMap: a layout captured in Options (null = the browser's standard layout)
   const padPrev = new Uint8Array(18), padHit = new Uint8Array(18);
   const PAD_STD = { steer: { a: 0, s: 1 }, gas: { b: 7 }, brake: { b: 6 }, hb: { b: 0 }, up: { b: 5 }, down: { b: 4 }, cam: { b: 3 }, reset: { b: 1 }, pause: { b: 9 } };
-  const PAD_ACTS = ['gas', 'brake', 'hb', 'up', 'down', 'cam', 'reset', 'pause'], padWas = {}, padEdge = {};
+  const PAD_ACTS = ['gas', 'brake', 'hb', 'up', 'down', 'cam', 'reset', 'pause'], padWas = {}, padEdge = {}, PAD_NONE = { steer: { a: 0, s: 1 } };
   // a control is a button {b} or an axis {a, r: rest value, t: the end it travels to} (triggers are axes on some pads); 0..1
   const padVal = (gp, m) => { if (!m) return 0; if (m.b !== undefined) { const q = gp.buttons[m.b]; return q ? Math.max(q.value || 0, q.pressed ? 1 : 0) : 0; } const v = gp.axes[m.a]; return v === undefined ? 0 : clamp((v - m.r) / (m.t - m.r), 0, 1); };
   const PAD_STEPS = [['steer', 'Push the LEFT STICK to the right'], ['gas', 'Pull the GAS trigger (right trigger)'], ['brake', 'Pull the BRAKE trigger (left trigger)'], ['hb', 'Press HANDBRAKE (A)'], ['up', 'Press SHIFT UP (right bumper)'], ['down', 'Press SHIFT DOWN (left bumper)'], ['cam', 'Press CAMERA (Y)'], ['reset', 'Press RESET (B)'], ['pause', 'Press PAUSE (Start)']];
@@ -222,6 +222,7 @@
     const s = padSetup; if (panel !== 'pPad') { padSetup = null; return; }
     if (!s.rest) { s.rest = Array.from(gp.axes); padStepText(); return; }
     const quiet = !gp.buttons.some((b) => b.pressed || b.value > 0.3) && gp.axes.every((v, i) => Math.abs(v - s.rest[i]) < 0.3);
+    $('padLive').textContent = 'Your pad right now · buttons down: ' + (gp.buttons.map((b, i) => b.pressed || b.value > 0.3 ? i : -1).filter((i) => i >= 0).join(' ') || 'none') + ' · axes: ' + Array.from(gp.axes, (v) => v.toFixed(1)).join(' ');
     if (!s.idle) { if (quiet) s.idle = true; return; }
     const key = PAD_STEPS[s.i][0]; let m = null;
     for (let i = 0; i < gp.buttons.length && !m; i++) if (gp.buttons[i].pressed || gp.buttons[i].value > 0.6) m = { b: i };
@@ -229,7 +230,7 @@
     if (!m || (key === 'steer' && m.b !== undefined)) return;
     s.map[key] = m; s.idle = false; s.i++;
     if (s.i < PAD_STEPS.length) { padStepText(); return; }
-    padMap = s.map; store.set('padMap', padMap); padSetup = null; padOptText(); openPanel('pOptions'); toast('Controller set up');
+    $('padLive').textContent = ''; padMap = s.map; store.set('padMap', padMap); padSetup = null; padOptText(); openPanel('pOptions'); toast('Controller set up');
   }     // standard pad buttons 0-15, then 16/17 = left stick up/down
   function readInput() {
     let steer = (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0) - (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) + touch.l - touch.r;
@@ -237,9 +238,10 @@
     const pads = navigator.getGamepads ? navigator.getGamepads() : null; let gp = null;
     if (pads) for (let i = 0; i < pads.length; i++) { const g = pads[i]; if (g && g.connected && g.buttons.length >= 4) { gp = g; break; } }
     padRef = gp; const pn = gp ? gp.id : null;
-    if (pn !== padName) { padName = pn; const short = pn ? pn.replace(/\s*\(.*$/, '').trim() || 'Gamepad' : null; $('padStatus').textContent = short ? 'Controller connected: ' + short : 'No controller detected. Click in the game, then press any button on the controller.'; if (mode !== 'title') toast(short ? 'Controller connected: ' + short : 'Controller disconnected'); padOptText(); }
+    if (pn !== padName) { padName = pn; const short = pn ? pn.replace(/\s*\(.*$/, '').trim() || 'Gamepad' : null; $('padStatus').textContent = short ? 'Controller connected: ' + short : 'No controller detected. Click in the game, then press any button on the controller.'; if (mode !== 'title') toast(short ? 'Controller connected: ' + short : 'Controller disconnected'); padOptText();
+      if (gp && gp.mapping !== 'standard' && !padMap && W && !padSetup && store.get('padAsked') !== pn) { store.set('padAsked', pn); padSetupStart(); toast('Unknown controller layout: set up its buttons'); } }      // a pad the browser cannot map: ask once
     if (gp) {
-      const M = padMap || PAD_STD, sv = gp.axes[M.steer.a + 1] || 0;      // the stick's vertical axis moves menus
+      const M = padMap || (gp.mapping === 'standard' ? PAD_STD : PAD_NONE), sv = gp.axes[M.steer.a + 1] || 0;      // the stick's vertical axis moves menus; an unknown layout drives nothing until it is set up
       for (let i = 0; i < 18; i++) { const p = i < 16 ? !!(gp.buttons[i] && gp.buttons[i].pressed) : (i === 16 ? sv < -0.6 : sv > 0.6); padHit[i] = p && !padPrev[i] ? 1 : 0; padPrev[i] = p ? 1 : 0; }
       for (const k of PAD_ACTS) { const p = padVal(gp, M[k]) > 0.5; padEdge[k] = p && !padWas[k] ? 1 : 0; padWas[k] = p; }
       const a0 = (gp.axes[M.steer.a] || 0) - (M.steer.r || 0), ax = Math.abs(a0) < 0.08 ? 0 : a0; steer -= (M.steer.s || 1) * Math.sign(ax) * Math.pow(Math.abs(ax), 1.6);
