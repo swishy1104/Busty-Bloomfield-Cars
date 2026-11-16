@@ -118,7 +118,34 @@
       }
     }
     const LIFT = { primary: 0.09, secondary: 0.08, tertiary: 0.07, residential: 0.06, unclassified: 0.06, service: 0.05, unknown: 0.05, track: 0.04 };
-    const roads = M.roads.map((r) => { const s = resample(r.p, 2.5); s.H = levels(s, r.b); if (r.c !== 'track') capGrade(s); s.hw = r.w / 2; s.cls = r.c; s.name = r.n; s.gravel = r.g; s.lift = LIFT[r.c]; stamp(s, s.hw); return s; });
+    // Whittaker smoother: min sum w (z - y)^2 + lam sum (second difference of z)^2, a banded (pentadiagonal) SPD solve
+    function whit(y, w, lam) {
+      const n = y.length, A = [], b = new Float64Array(n), z = new Float64Array(n); if (n < 3) return Float64Array.from(y);
+      for (let i = 0; i < n; i++) { A.push(new Float64Array(5)); A[i][2] = w[i]; b[i] = w[i] * y[i]; }      // A[i][2 + k - i] for |k - i| <= 2
+      for (let i = 0; i + 2 < n; i++) for (let p = 0; p < 3; p++) for (let q = 0; q < 3; q++) A[i + p][2 + q - p] += lam * [1, -2, 1][p] * [1, -2, 1][q];
+      for (let i = 0; i < n; i++) for (let j = i + 1; j <= Math.min(n - 1, i + 2); j++) { const f = A[j][2 + i - j] / A[i][2]; for (let k = i; k <= Math.min(n - 1, i + 2); k++) A[j][2 + k - j] -= f * A[i][2 + k - i]; b[j] -= f * b[i]; }
+      for (let i = n - 1; i >= 0; i--) { let t = b[i]; for (let k = i + 1; k <= Math.min(n - 1, i + 2); k++) t -= A[i][2 + k - i] * z[k]; z[i] = t / A[i][2]; }
+      return z;
+    }
+    const roads = M.roads.map((r) => { const s = resample(r.p, 2.5); s.H = levels(s, r.b); if (r.c !== 'track') capGrade(s); s.hw = r.w / 2; s.cls = r.c; s.name = r.n; s.gravel = r.g; s.lift = LIFT[r.c]; return s; });
+    // bridges: the DEM under a deck is the creek bed, and levels()'s fill left a flat shelf whose downhill end was a step (the car flew
+    // 0.94 m off the US 231 creek bridge at 45 m/s). The deck becomes a straight line between its ends, and the deck plus up to 120 m of
+    // the road joined at each end are smoothed together (lambda 3000 at 2.5 m, as routes.js does), the last 3 samples each side pinned.
+    M.roads.forEach((r, bi) => {
+      const B = roads[bi], n = B.X.length; if (!r.b || n < 2) return;
+      const cum = [0]; for (let k = 1; k < n; k++) cum[k] = cum[k - 1] + Math.hypot(B.X[k] - B.X[k - 1], B.Z[k] - B.Z[k - 1]);
+      for (let k = 1; k < n - 1; k++) B.H[k] = B.H[0] + (B.H[n - 1] - B.H[0]) * cum[k] / cum[n - 1];
+      const join = (ex, ez) => { let best = null, bd = 1.5; roads.forEach((s, i) => { if (i === bi || M.roads[i].b || !(s.cls === B.cls || (s.name && s.name === B.name))) return; const m = s.X.length - 1;
+        for (const k of [0, m]) { const d = Math.hypot(s.X[k] - ex, s.Z[k] - ez); if (d < bd) { bd = d; best = { s, k }; } } }); return best; };
+      const refs = [], a = join(B.X[0], B.Z[0]), c = join(B.X[n - 1], B.Z[n - 1]), MAXN = 48;      // 48 samples = 120 m
+      if (a) { const m = a.s.X.length - 1, run = []; for (let q = 1; q <= Math.min(MAXN, m); q++) run.push([a.s, a.k ? m - q : q]); run.reverse().forEach((x) => refs.push(x)); }
+      for (let k = 0; k < n; k++) refs.push([B, k]);
+      if (c) { const m = c.s.X.length - 1; for (let q = 1; q <= Math.min(MAXN, m); q++) refs.push([c.s, c.k ? m - q : q]); }
+      const y = refs.map(([s, k]) => s.H[k]), w = refs.map((_, i) => (i < 3 && a) || (i >= refs.length - 3 && c) ? 1e6 : 1), z = whit(y, w, 3000);
+      refs.forEach(([s, k], i) => { s.H[k] = z[i]; });
+      if (a) a.s.H[a.k] = B.H[0]; if (c) c.s.H[c.k] = B.H[n - 1];      // the joined end points sit on the deck ends
+    });
+    for (const s of roads) stamp(s, s.hw);
     const rails = M.rails.map((p) => { const s = resample(p, 2.5); s.H = levels(s, true); s.hw = 1.7; stamp(s, s.hw); return s; });
     const lots = M.areas.filter((a) => a.k === 'parking');
 
