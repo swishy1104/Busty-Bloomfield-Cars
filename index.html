@@ -256,7 +256,15 @@
     <div class="opt"><label>Time of day</label><div class="seg" id="segTime"><button data-v="golden">Golden hour</button><button data-v="midday">Midday</button><button data-v="dusk">Dusk</button></div></div>
     <div class="opt"><label>Falling leaves</label><div class="seg" id="segLeaves"><button data-v="1">On</button><button data-v="0">Off</button></div></div>
     <div class="opt"><label>Traffic</label><div class="seg" id="segTraffic"><button data-v="off">Off</button><button data-v="light">Light</button><button data-v="normal">Normal</button></div></div>
+    <div class="opt"><label>Controller</label><div class="row"><button class="btn ghost small" id="bPadSetup">Set up buttons</button><button class="btn ghost small" id="bPadStd">Standard layout</button></div></div>
+    <p class="fine" id="padOpt">No controller detected. Click in the game, then press any button on the controller.</p>
     <div class="row"><button class="btn ghost" id="bHelp">Controls</button></div>
+  </div>
+
+  <div class="panel" id="pPad" hidden>
+    <div class="head"><h2>Controller setup</h2><button class="btn small" data-close>Cancel</button></div>
+    <p id="padStep" style="font-size:22px;color:var(--gold)"></p>
+    <p class="fine">Each control is read straight from your pad, so any layout works. Let go of everything between steps.</p>
   </div>
 
   <div class="panel" id="pHelp" hidden>
@@ -277,9 +285,9 @@
       <div><kbd>R</kbd> <kbd>Esc</kbd></div><span>Reset onto the nearest street, pause</span>
       <div><kbd>G</kbd> <kbd>M</kbd> <kbd>O</kbd> <kbd>J</kbd> <kbd>H</kbd></div><span>Garage, races, options, goals, controls</span>
     </div>
-      <div>Gamepad</div><span>Left stick steer · right trigger gas · left trigger brake · A handbrake · bumpers shift down / up · Y camera · B reset · Start pause · D-pad or stick and A in menus</span>
+      <div>Gamepad</div><span>Left stick steer · right trigger gas · left trigger brake · A handbrake · bumpers shift down / up · Y camera · B reset · Start pause · D-pad or stick and A in menus. Different on your pad? Options → Controller → Set up buttons.</span>
     </div>
-    <p class="fine" id="padStatus">No controller detected. Plug one in or pair it, then press any button on it.</p>
+    <p class="fine" id="padStatus">No controller detected. Click in the game, then press any button on the controller.</p>
     <p><b style="color:var(--cream)">How to drift:</b> turn in, tap the handbrake or floor the gas, then hold the throttle and steer to set your angle. Lift off to straighten. Longer, faster, wider slides multiply the score.</p>
     <p class="fine">Streets and building footprints: © OpenStreetMap contributors, via Overture Maps (ODbL). Terrain, roof heights and shapes, pavement and every tree: USGS 3DEP lidar survey of Indiana, 2017 (public domain). Fields and woods beyond town: © ESA WorldCover 2021 (CC BY 4.0). Wall colours, windows and signs are stylized.</p>
   </div>

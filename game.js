@@ -208,32 +208,56 @@
   });
   addEventListener('keyup', (e) => keys.delete(e.code));
   addEventListener('blur', () => keys.clear());
-  let padName = null;
-  const padPrev = new Uint8Array(18), padHit = new Uint8Array(18);     // standard pad buttons 0-15, then 16/17 = left stick up/down
+  let padName = null, padMap = store.get('padMap', null), padSetup = null;      // padMap: a layout captured in Options (null = the browser's standard layout)
+  const padPrev = new Uint8Array(18), padHit = new Uint8Array(18);
+  const PAD_STD = { steer: { a: 0, s: 1 }, gas: { b: 7 }, brake: { b: 6 }, hb: { b: 0 }, up: { b: 5 }, down: { b: 4 }, cam: { b: 3 }, reset: { b: 1 }, pause: { b: 9 } };
+  const PAD_ACTS = ['gas', 'brake', 'hb', 'up', 'down', 'cam', 'reset', 'pause'], padWas = {}, padEdge = {};
+  // a control is a button {b} or an axis {a, r: rest value, t: the end it travels to} (triggers are axes on some pads); 0..1
+  const padVal = (gp, m) => { if (!m) return 0; if (m.b !== undefined) { const q = gp.buttons[m.b]; return q ? Math.max(q.value || 0, q.pressed ? 1 : 0) : 0; } const v = gp.axes[m.a]; return v === undefined ? 0 : clamp((v - m.r) / (m.t - m.r), 0, 1); };
+  const PAD_STEPS = [['steer', 'Push the LEFT STICK to the right'], ['gas', 'Pull the GAS trigger (right trigger)'], ['brake', 'Pull the BRAKE trigger (left trigger)'], ['hb', 'Press HANDBRAKE (A)'], ['up', 'Press SHIFT UP (right bumper)'], ['down', 'Press SHIFT DOWN (left bumper)'], ['cam', 'Press CAMERA (Y)'], ['reset', 'Press RESET (B)'], ['pause', 'Press PAUSE (Start)']];
+  function padSetupStart() { padSetup = { i: 0, map: {}, rest: null, idle: false }; openPanel('pPad', 'pOptions'); $('padStep').textContent = padRef ? '' : 'Press any button on the controller to begin'; if (padRef) padStepText(); }
+  function padStepText() { $('padStep').textContent = (padSetup.i + 1) + ' of ' + PAD_STEPS.length + ': ' + PAD_STEPS[padSetup.i][1]; }
+  function padOptText() { const g = padRef; $('padOpt').textContent = g ? 'Controller connected: ' + padName.replace(/\s*\(.*$/, '').trim() + ' · ' + g.buttons.length + ' buttons, ' + g.axes.length + ' axes, ' + (g.mapping === 'standard' ? 'standard layout' : 'non-standard layout: use Set up buttons') + (padMap ? ' · custom layout in use' : '') : 'No controller detected. Click in the game, then press any button on the controller.'; }
+  function padCapture(gp) {     // one step per control: wait for a quiet pad, then take the first button pressed or axis moved
+    const s = padSetup; if (panel !== 'pPad') { padSetup = null; return; }
+    if (!s.rest) { s.rest = Array.from(gp.axes); padStepText(); return; }
+    const quiet = !gp.buttons.some((b) => b.pressed || b.value > 0.3) && gp.axes.every((v, i) => Math.abs(v - s.rest[i]) < 0.3);
+    if (!s.idle) { if (quiet) s.idle = true; return; }
+    const key = PAD_STEPS[s.i][0]; let m = null;
+    for (let i = 0; i < gp.buttons.length && !m; i++) if (gp.buttons[i].pressed || gp.buttons[i].value > 0.6) m = { b: i };
+    for (let i = 0; i < gp.axes.length && !m; i++) { const d = gp.axes[i] - s.rest[i]; if (Math.abs(d) > 0.6) m = key === 'steer' ? { a: i, s: Math.sign(d), r: s.rest[i] } : { a: i, r: s.rest[i], t: Math.sign(d) }; }
+    if (!m || (key === 'steer' && m.b !== undefined)) return;
+    s.map[key] = m; s.idle = false; s.i++;
+    if (s.i < PAD_STEPS.length) { padStepText(); return; }
+    padMap = s.map; store.set('padMap', padMap); padSetup = null; padOptText(); openPanel('pOptions'); toast('Controller set up');
+  }     // standard pad buttons 0-15, then 16/17 = left stick up/down
   function readInput() {
     let steer = (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0) - (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) + touch.l - touch.r;
     let gas = keys.has('KeyW') || keys.has('ArrowUp') || touch.gas ? 1 : 0, brake = keys.has('KeyS') || keys.has('ArrowDown') || touch.brk ? 1 : 0, hb = keys.has('Space') || touch.hb ? 1 : 0;
     const pads = navigator.getGamepads ? navigator.getGamepads() : null; let gp = null;
-    if (pads) for (let i = 0; i < pads.length; i++) { const g = pads[i]; if (g && g.connected && g.buttons.length > 7) { gp = g; break; } }
+    if (pads) for (let i = 0; i < pads.length; i++) { const g = pads[i]; if (g && g.connected && g.buttons.length >= 4) { gp = g; break; } }
     padRef = gp; const pn = gp ? gp.id : null;
-    if (pn !== padName) { padName = pn; const short = pn ? pn.replace(/\s*\(.*$/, '').trim() || 'Gamepad' : null; $('padStatus').textContent = short ? 'Controller connected: ' + short : 'No controller detected. Plug one in or pair it, then press any button on it.'; if (mode !== 'title') toast(short ? 'Controller connected: ' + short : 'Controller disconnected'); }
+    if (pn !== padName) { padName = pn; const short = pn ? pn.replace(/\s*\(.*$/, '').trim() || 'Gamepad' : null; $('padStatus').textContent = short ? 'Controller connected: ' + short : 'No controller detected. Click in the game, then press any button on the controller.'; if (mode !== 'title') toast(short ? 'Controller connected: ' + short : 'Controller disconnected'); padOptText(); }
     if (gp) {
-      for (let i = 0; i < 18; i++) { const p = i < 16 ? !!(gp.buttons[i] && gp.buttons[i].pressed) : (i === 16 ? gp.axes[1] < -0.6 : gp.axes[1] > 0.6); padHit[i] = p && !padPrev[i] ? 1 : 0; padPrev[i] = p ? 1 : 0; }
-      const ax = Math.abs(gp.axes[0]) < 0.08 ? 0 : gp.axes[0]; steer -= Math.sign(ax) * Math.pow(Math.abs(ax), 1.6);
-      gas = Math.max(gas, gp.buttons[7].value); brake = Math.max(brake, gp.buttons[6].value); hb = Math.max(hb, gp.buttons[0].value);
-      if (photo) { if (padHit[1] || padHit[9]) setPhoto(false); }
+      const M = padMap || PAD_STD, sv = gp.axes[M.steer.a + 1] || 0;      // the stick's vertical axis moves menus
+      for (let i = 0; i < 18; i++) { const p = i < 16 ? !!(gp.buttons[i] && gp.buttons[i].pressed) : (i === 16 ? sv < -0.6 : sv > 0.6); padHit[i] = p && !padPrev[i] ? 1 : 0; padPrev[i] = p ? 1 : 0; }
+      for (const k of PAD_ACTS) { const p = padVal(gp, M[k]) > 0.5; padEdge[k] = p && !padWas[k] ? 1 : 0; padWas[k] = p; }
+      const a0 = (gp.axes[M.steer.a] || 0) - (M.steer.r || 0), ax = Math.abs(a0) < 0.08 ? 0 : a0; steer -= (M.steer.s || 1) * Math.sign(ax) * Math.pow(Math.abs(ax), 1.6);
+      gas = Math.max(gas, padVal(gp, M.gas)); brake = Math.max(brake, padVal(gp, M.brake)); hb = Math.max(hb, padVal(gp, M.hb));
+      if (padSetup) padCapture(gp);
+      else if (photo) { if (padEdge.reset || padEdge.pause) setPhoto(false); }
       else if (panel || mode === 'title') padMenu();
-      else { if (padHit[5]) P.shift(car, 1); if (padHit[4]) P.shift(car, -1); if (padHit[3]) camMode = (camMode + 1) % 3; if (padHit[1]) resetCar(); if (padHit[9]) pause(); }
+      else { if (padEdge.up) P.shift(car, 1); if (padEdge.down) P.shift(car, -1); if (padEdge.cam) camMode = (camMode + 1) % 3; if (padEdge.reset) resetCar(); if (padEdge.pause) pause(); }
     }
     inp.steer = clamp(steer, -1, 1); inp.gas = gas; inp.brake = brake; inp.handbrake = hb; inp.assist = S.assist;
   }
   // menus on a pad: D-pad or stick moves the focus, A presses, B or Start goes back (Start on the title drives)
   function padMenu() {
     const root = $(panel || 'title'), a = document.activeElement, on = a && a.tagName === 'BUTTON' && root.contains(a) ? a : null;
-    const dir = padHit[12] || padHit[14] || padHit[16] ? -1 : padHit[13] || padHit[15] || padHit[17] ? 1 : padHit[0] && !on && panel ? 1 : 0;
+    const dir = padHit[12] || padHit[14] || padHit[16] ? -1 : padHit[13] || padHit[15] || padHit[17] ? 1 : padEdge.hb && !on && panel ? 1 : 0;
     if (dir) { const l = Array.prototype.filter.call(root.querySelectorAll('button'), (b) => !b.disabled && b.offsetParent), i = l.indexOf(on); if (l.length) l[i < 0 ? 0 : (i + dir + l.length) % l.length].focus({ focusVisible: true }); }
-    else if (padHit[0]) { if (on) on.click(); else startDriving(); }
-    else if (padHit[1] || padHit[9]) { if (panel) back(); else if (padHit[9]) startDriving(); }
+    else if (padEdge.hb) { if (on) on.click(); else startDriving(); }
+    else if (padEdge.reset || padEdge.pause) { if (panel) back(); else if (padEdge.pause) startDriving(); }
   }
   $('tCam').onclick = () => { camMode = (camMode + 1) % 3; };      // touch: chase / far chase / hood
   [['tL', 'l'], ['tR', 'r'], ['tGas', 'gas'], ['tBrk', 'brk'], ['tHb', 'hb']].forEach(([id, key]) => {
@@ -623,6 +647,7 @@
       info.append(n, sp, bars); b.append(sw, info); b.onclick = () => { setCar(c.id, S.drift); renderGarage(); }; list.append(b);
     }
   }
+  $('bPadSetup').onclick = padSetupStart; $('bPadStd').onclick = () => { padMap = null; store.set('padMap', null); padOptText(); toast('Standard controller layout'); }; padOptText();
   seg('segQuality', S.quality, (v) => { autoQ = false; S.quality = +v; store.set('quality', S.quality); applyQuality(); });
   seg('segAssist', S.assist ? 1 : 0, (v) => { S.assist = v === '1'; store.set('assist', S.assist); });
   seg('segTime', S.tod, (v) => { S.tod = v; store.set('tod', v); renderer.toneMappingExposure = W.setTime(v); if (view && view.setLights) view.setLights(v === 'dusk'); });
