@@ -31,7 +31,25 @@ var version = "dev"
 // settings, best times and ghost laps (web storage is per origin).
 const port = 27831
 
-const heartbeat = `<script>(function(){var p=function(){fetch('/__alive',{cache:'no-store'}).catch(function(){})};p();setInterval(p,3000)})()</script>`
+// Install the exit controls and heartbeat before any game scripts load.
+const desktopScript = `<script>
+(() => {
+  const title = document.getElementById('title');
+  const exit = document.getElementById('bExitGame');
+  exit.hidden = false;
+  exit.addEventListener('click', () => window.close());
+  window.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || event.repeat || title.hidden) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    window.close();
+  }, true);
+
+  const ping = () => fetch('/__alive', { cache: 'no-store' }).catch(() => {});
+  ping();
+  setInterval(ping, 3000);
+})();
+</script>`
 
 var lastPing atomic.Int64
 
@@ -55,11 +73,7 @@ func main() {
 		log.Fatal(err)
 	}
 	index = bytes.Replace(index, []byte("https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"), []byte("three.min.js"), 1)
-	if i := bytes.LastIndex(index, []byte("</body>")); i >= 0 {
-		index = append(index[:i:i], append([]byte(heartbeat), index[i:]...)...)
-	} else { // the page has no closing tags: the scripts simply end the file
-		index = append(index, []byte("\n"+heartbeat+"\n")...)
-	}
+	index = bytes.Replace(index, []byte("<!-- desktop-launcher -->"), []byte(desktopScript), 1)
 
 	files := http.FileServer(http.FS(game))
 	mux := http.NewServeMux()

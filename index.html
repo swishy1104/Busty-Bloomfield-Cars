@@ -23,6 +23,7 @@
     --text: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
   }
   *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html, body { height: 100%; }
   body { background: var(--ink); color: var(--cream); font-family: var(--text); font-size: 17px; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
   #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
@@ -212,6 +213,7 @@
     <h1>Bloomfield Drift</h1>
     <div class="sub">Slide the real streets of Bloomfield, Indiana, under peak fall color.</div>
     <div id="load"><div id="loadBar"><div id="loadFill"></div></div><div id="loadText">Loading map</div></div>
+    <button class="btn ghost small" id="bExitGame" type="button" hidden>Exit Game</button>
     <nav id="mainMenu" aria-label="Main menu">
       <button class="btn primary" id="bDrive" disabled>Drive</button>
       <button class="btn ghost" id="bTitleRace" disabled>Races</button>
@@ -310,6 +312,7 @@
   </div>
 </div></div>
 
+<!-- desktop-launcher -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="map.js"></script>
 <script src="detail.js"></script>

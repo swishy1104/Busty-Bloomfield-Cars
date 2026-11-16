@@ -44,8 +44,10 @@ VIAddVersionKey "LegalCopyright" ""
 Section "Bloomfield Drift (required)" SecMain
   SectionIn RO
   SetOutPath "$INSTDIR"
-  File "build/Bloomfield Drift.exe"
-  File "build/icon.ico"
+  !cd "build"
+  File "Bloomfield Drift.exe"
+  File "icon.ico"
+  !cd ".."
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   CreateDirectory "$SMPROGRAMS\Bloomfield Drift"
   CreateShortcut "$SMPROGRAMS\Bloomfield Drift\Bloomfield Drift.lnk" "$INSTDIR\Bloomfield Drift.exe" "" "$INSTDIR\icon.ico"
