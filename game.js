@@ -483,11 +483,11 @@
     // on SR 54 over the White River into W Main St, through downtown, right on S Washington St, south on US 231; a gate on that path at every
     // turn and bend (30 m Douglas-Peucker) and at least every 1.4 km. Third element 1: kept as is, not snapped to a road (the start, where the
     // route meets the lot exit, which the nearest-road snap would move 20 m along A St; the finish, up the house's gravel drive)
-    { id: 'p-taco', name: 'Taco Bell Run', sub: 'Linton to US 231', laps: 0, pts: [[-18087.6, 1255.3, 1], [-17392.1, 1393.1], [-16104.3, 1329.7], [-14834.5, 1324.5], [-13569.6, 1328.9], [-12299.7, 1329.5], [-11034.9, 1318.2], [-10524.7, 1030.4], [-9518.8, 924.2], [-8363.9, 926], [-7214.4, 922.9], [-6647.2, 659.5], [-5291.7, 337.5], [-4477.6, 299.2], [-3663.4, 271.4], [-2899.8, 195.1], [-2142.5, 91.8], [-1045.1, 79.3], [49.7, 55.3], [53.1, -516.5], [420.4, -1428.3], [602.4, -2550.3], [532, -2556.2, 1]] },
+    { id: 'p-taco', name: 'Taco Bell Run', sub: 'Linton to US 231', laps: 0, pts: [[-18088, 1235, 1], [-18058, 1240, 1], [-18058, 1257, 1], [-17392.1, 1393.1], [-16104.3, 1329.7], [-14834.5, 1324.5], [-13569.6, 1328.9], [-12299.7, 1329.5], [-11034.9, 1318.2], [-10524.7, 1030.4], [-9518.8, 924.2], [-8363.9, 926], [-7214.4, 922.9], [-6647.2, 659.5], [-5291.7, 337.5], [-4477.6, 299.2], [-3663.4, 271.4], [-2899.8, 195.1], [-2142.5, 91.8], [-1045.1, 79.3], [49.7, 55.3], [53.1, -516.5], [420.4, -1428.3], [602.4, -2550.3], [578, -2552, 1], [552, -2556, 1], [531, -2563, 1]] },
   ];
   let courses = [], race = null, ghost = null, beams = [];
   const bests = store.get('bests', {}), ghosts = store.get('ghosts', {});
-  function snapCourse(c) { return Object.assign({}, c, { preset: true, pts: c.pts.map((p) => { if (p[2]) return [p[0], p[1]]; const r = W.nearestRoad(p[0], -p[1], 150); return r ? [r.x, -r.z] : p; }) }); }
+  function snapCourse(c) { return Object.assign({}, c, { preset: true, pts: c.pts.map((p) => { if (p[2]) return [p[0], p[1], 1]; const r = W.nearestRoad(p[0], -p[1], 150); return r ? [r.x, -r.z] : p; }) }); }
   function courseLen(c) { let d = 0; for (let i = 1; i < c.pts.length; i++) d += Math.hypot(c.pts[i][0] - c.pts[i - 1][0], c.pts[i][1] - c.pts[i - 1][1]); if (c.laps) d = (d + Math.hypot(c.pts[0][0] - c.pts[c.pts.length - 1][0], c.pts[0][1] - c.pts[c.pts.length - 1][1])) * c.laps; return d; }
   function initRaceObjects() {
     for (let k = 0; k < 2; k++) {
@@ -501,7 +501,7 @@
     closePanel(); if (mode === 'title') enterDrive();
     const p0 = course.pts[0], p1 = course.pts[1], r = W.nearestRoad(p0[0], -p0[1], 60);
     let psi = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
-    if (r) { const a = Math.atan2(-r.tz, r.tx); psi = Math.cos(a - psi) >= 0 ? a : a + Math.PI; }
+    if (r && !p0[2]) { const a = Math.atan2(-r.tz, r.tx); psi = Math.cos(a - psi) >= 0 ? a : a + Math.PI; }      // a pinned start (a parking lot) faces the next gate, not the road
     placeCar(p0[0], p0[1], psi); Object.assign(safe, { x: p0[0], y: p0[1], psi, ok: true });
     const seq = course.laps ? course.pts.slice(1).concat([course.pts[0]]) : course.pts.slice(1);
     // the ghost is recorded every gdt s: 0.1 s, or 0.25 s on the presets over 8 km (a 15 minute run: 3,600 samples, about 55 KB in localStorage)
@@ -527,7 +527,7 @@
       race.t += dt;
       if ((race.recT -= dt) <= 0 && race.rec.length < 18000) { race.recT += race.gdt; race.rec.push(Math.round(car.x * 10), Math.round(car.y * 10), Math.round(car.psi * 100)); }
       const p = race.seq[race.i % race.seq.length], d = Math.hypot(car.x - p[0], car.y - p[1]);
-      if (d < 12) { race.i++; beep(race.i >= race.total ? 1175 : 660, 0.25); api.emit('raceGate', race.i, race.total); if (race.i >= race.total) finishRace(); else placeBeams(); }
+      if (d < (p[2] && race.i === race.total - 1 ? 7 : 12)) { race.i++; beep(race.i >= race.total ? 1175 : 660, 0.25); api.emit('raceGate', race.i, race.total); if (race.i >= race.total) finishRace(); else placeBeams(); }
       if (race && race.state === 'run') {
         const a = Math.atan2(p[1] - car.y, p[0] - car.x) - car.psi; $('arrowI').style.transform = 'rotate(' + (-a * 57.3).toFixed(0) + 'deg)';
         setText('arrowD', d * 3.281 < 1000 ? Math.round(d * 3.281 / 10) * 10 + ' ft' : (d / 1609.34).toFixed(1) + ' mi');
