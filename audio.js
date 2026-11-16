@@ -1,13 +1,26 @@
-/* Bloomfield Drift — sound (BD.audio). Everything is synthesised with the Web Audio API; nothing is loaded.
-   Adds: an engine per car (a PeriodicWave exhaust spectrum computed from each engine's firing order and bank layout, combustion
-   jitter, waveshaper rasp, load-dependent low-pass and exhaust formants, pulsed exhaust noise, intake roar, turbo whistle and
-   blow-off, overrun crackle and pops, rev-limiter stutter, shift clunk / downshift blip, reverse-gear whine), tyre squeal per
-   axle, gravel and grass scrub, wind and road roar, crash and landing impacts, interface chimes (beep, bank, gates, race fanfare,
+/* Bloomfield Drift — sound (BD.audio). Everything is synthesised with the Web Audio API; the only file loaded is
+   engine_worklet.js (next to this file): the engine's physical model and the tyre squeal model. Adds: an engine per car — a
+   physical model run in an AudioWorklet (cylinders firing into intake and exhaust waveguides, a header, a straight pipe, a
+   muffler and a tailpipe; MIT, adapted from Antonio-R1's engine-sound-generator), tuned per car in ENG (cylinder count, pipe and
+   muffler lengths, pulse sharpness) and driven by the car's rpm and throttle every frame (smoothed; the rev-limiter cut drops the
+   charge to zero, a shift lifts it); on top of it pulsed exhaust noise riding on the model's exhaust pulses, turbo whistle and
+   blow-off, overrun crackle and pops, shift clunk / downshift blip and reverse-gear whine. Where AudioWorklet is missing or
+   engine_worklet.js fails to load (file:// pages, old browsers) the previous synthesised voice plays instead (a PeriodicWave
+   exhaust spectrum from the firing order, waveshaper rasp, formants, intake roar), from the same ENG table; it also covers the
+   first frames while the worklet module loads. Tyres: one stick-slip squeal voice per tyre plus scrub hiss (worklet 'bd-tyres'),
+   driven by each tyre's slip speed, load and surface: silent rolling, setting in just short of the grip limit, a steady screech
+   in a held drift that follows the slip, a lower howl and more hiss with a locked wheel, a chirp on a sudden grip loss and on the
+   1-2 shift of a hard launch, never on grass, gravel or water (crunch, swish and rumble there); without the worklet a per-axle
+   synth squeal stands in. Then wind and road roar, crash and landing impacts, interface chimes (beep, bank, gates, race fanfare,
    golden apples, drift zones, speed traps) and ambience: wind in dry leaves, birds, and on the courthouse square the Apple
-   Festival crowd with a small fairground-organ waltz (original tune).
-   Public: BD.audio = { init(soundOn), update(dt, state), event(name, a, b, c), beep(freq, seconds, volume), setMuted(bool),
-   context, nodes, build(ctx, dest) }. build() makes the whole graph on any BaseAudioContext (the offline tests use it) and
-   returns { update, event, beep, setMuted, nodes }. All 63 nodes are created once in build(): nothing per frame or per event.
+   Festival crowd with a small fairground-organ waltz (original tune). The engine chain ends in a soft-knee clipper so full
+   throttle at the redline cannot clip. Public: BD.audio = { init(soundOn), update(dt, state), event(name, a, b, c), beep(freq,
+   seconds, volume), setMuted(bool), setVolume({ master, engine, music }) (each 0..1, missing keys unchanged; works before init
+   too), getVolume(), context, nodes, voice ('worklet' | 'synth' | null), ready (promise: worklet loaded or fallback chosen),
+   build(ctx, dest) }. build() makes the whole graph on any BaseAudioContext (the offline tests use it) and returns { update,
+   event, beep, setMuted, setVolume, nodes, ready, voice, tyres (the tyre worklet node or null) }. All 78 nodes (+2 worklet nodes)
+   are created once in build(): nothing per frame or per event. master scales everything, engine the engine voice; master * music
+   is forwarded to BD.radio.setVolume when a radio is present (again whenever either changes, and once when the radio appears).
    Reads BD.game.settings.tod ('dusk' = fewer birds). Creates no DOM, emits no events. */
 (function () {
   'use strict';
@@ -15,22 +28,57 @@
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const sstep = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
   const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
-  const VOL = 0.8;
+  const vol = { master: 0.8, engine: 0.8, music: 0.6 };      // the three volume sliders (game.js persists them)
+  // engine_worklet.js sits next to this file; a relative URL is the fallback when the script has no src (inline test pages)
+  const WORKLET_URL = (() => { try { const u = document.currentScript && document.currentScript.src; return u ? new URL('engine_worklet.js', u).href : 'engine_worklet.js'; } catch (e) { return 'engine_worklet.js'; } })();
 
-  // engines: banks = firing order written as the bank each cylinder exhausts into (R/L); dl, ga = the L bank's extra path
-  // (fraction of a cycle) and strength; half = added half-firing-order rumble; jit = cylinder-to-cylinder spread.
-  // L level, f1 exhaust formant Hz, f2 rasp formant Hz, drive = waveshaper pre-gain, rough = combustion AM, ex = pulsed exhaust
-  // noise, intake = intake roar, turbo = whistle/blow-off, burble = stock overrun burble, bright = extra low-pass Hz at full load.
-  const I4 = { banks: 'RRRR', dl: 0, ga: 1, half: 0, jit: 0.06 };
+  // engines. Physical model (engine_worklet.js): cyl cylinders; lengths in samples at 44.1 kHz (100 = 0.78 m of pipe): inL
+  // intake runner, exL exhaust port, xtL header, pipe straight pipe, muf muffler chambers (longer and more = deeper, quieter
+  // muffle), act muffler back-reflection (0..0.6), out tailpipe; ign combustion pulse width as a fraction of the cycle (shorter =
+  // sharper); crank crank-phase wobble (std, fraction of a cycle: 0.001 smooth, 0.002 a lumpier idle); W = [idle, mid, redline]
+  // levels (the model's own loudness has resonance holes; fitted by tools/engine_check.js so every car idles at -31 dB and reaches
+  // its old redline level); mix = [intake, block, outlet] levels; ex pulsed
+  // exhaust noise riding on the exhaust pulses (rasp); turbo = whistle/blow-off; burble = stock overrun pops. Drift builds get
+  // a straight-through exhaust (two half-length chambers, half the back-reflection), a sharper pulse and more rasp.
+  // Synth fallback: banks = firing order written as the bank each cylinder exhausts into (R/L); dl, ga = the L bank's extra path
+  // (fraction of a cycle) and strength; half = added half-firing-order rumble; jit = cylinder-to-cylinder spread; L level,
+  // f1 exhaust formant Hz, f2 rasp formant Hz (also the rasp noise band), drive = waveshaper pre-gain, rough = combustion AM,
+  // intake = intake roar, bright = extra low-pass Hz at full load.
+  const I4 = { banks: 'RRRR', dl: 0, ga: 1, half: 0, jit: 0.06, cyl: 4 };
   const ENG = {
-    mazda3: { ...I4, L: 0.30, f1: 470, f2: 1700, drive: 0.45, rough: 0.10, ex: 0.55, intake: 0.16, turbo: 1, burble: 0, bright: 500 },
-    ranger: { banks: 'RLRLRL', dl: 0.015, ga: 0.75, half: 0, jit: 0.05, L: 0.33, f1: 330, f2: 1350, drive: 0.6, rough: 0.20, ex: 0.7, intake: 0.12, turbo: 0, burble: 0, bright: 300 },
-    passat: { ...I4, jit: 0.05, L: 0.28, f1: 520, f2: 1900, drive: 0.4, rough: 0.08, ex: 0.45, intake: 0.15, turbo: 1.4, burble: 0, bright: 500 },
-    dart: { ...I4, jit: 0.08, L: 0.28, f1: 600, f2: 2100, drive: 0.55, rough: 0.14, ex: 0.5, intake: 0.24, turbo: 0, burble: 0, bright: 700 },
-    mustang: { banks: 'RLRLLRLR', dl: 0.02, ga: 0.7, half: 0.22, jit: 0.05, L: 0.36, f1: 250, f2: 1250, drive: 0.7, rough: 0.26, ex: 0.85, intake: 0.15, turbo: 0, burble: 0.5, bright: 600 },
-    miata: { ...I4, jit: 0.05, L: 0.27, f1: 680, f2: 2400, drive: 0.6, rough: 0.10, ex: 0.6, intake: 0.30, turbo: 0, burble: 0, bright: 1100 },
-    crownvic: { banks: 'RRLRLLRL', dl: 0.015, ga: 0.8, half: 0.18, jit: 0.05, L: 0.30, f1: 230, f2: 1100, drive: 0.5, rough: 0.20, ex: 0.6, intake: 0.10, turbo: 0, burble: 0, bright: 300 },
+    // 2.5 l turbo I4, quiet hatchback exhaust
+    mazda3: { ...I4, inL: 90, exL: 70, xtL: 110, pipe: 180, muf: [30, 45, 60, 75], act: 0.2, out: 8, ign: 0.05, crank: 0.0015, W: [0.057, 0.104, 0.217], mix: [0.5, 0.5, 1],
+      L: 0.30, f1: 470, f2: 1700, drive: 0.45, rough: 0.10, ex: 0.4, intake: 0.16, turbo: 1, burble: 0, bright: 500 },
+    // 4.0 l OHV V6 pickup: lazy pulse, one modest muffler
+    ranger: { banks: 'RLRLRL', dl: 0.015, ga: 0.75, half: 0, jit: 0.05, cyl: 6, inL: 110, exL: 90, xtL: 130, pipe: 200, muf: [25, 40, 55], act: 0.15, out: 8, ign: 0.06, crank: 0.002, W: [0.091, 0.188, 0.43], mix: [0.4, 0.5, 1.2],
+      L: 0.33, f1: 330, f2: 1350, drive: 0.6, rough: 0.20, ex: 0.5, intake: 0.12, turbo: 0, burble: 0, bright: 300 },
+    // 1.8 l turbo I4 sedan, well muffled
+    passat: { ...I4, jit: 0.05, inL: 85, exL: 70, xtL: 100, pipe: 190, muf: [35, 50, 65, 80], act: 0.22, out: 8, ign: 0.05, crank: 0.0015, W: [0.052, 0.131, 0.169], mix: [0.45, 0.5, 0.9],
+      L: 0.28, f1: 520, f2: 1900, drive: 0.4, rough: 0.08, ex: 0.35, intake: 0.15, turbo: 1.4, burble: 0, bright: 500 },
+    // 2.4 l I4, stock
+    dart: { ...I4, jit: 0.08, inL: 95, exL: 75, xtL: 105, pipe: 170, muf: [28, 42, 56, 70], act: 0.18, out: 8, ign: 0.045, crank: 0.0015, W: [0.059, 0.1, 0.237], mix: [0.6, 0.5, 1],
+      L: 0.28, f1: 600, f2: 2100, drive: 0.55, rough: 0.14, ex: 0.4, intake: 0.24, turbo: 0, burble: 0, bright: 700 },
+    // 5.0 l V8: short pipes, two small chambers, loud
+    mustang: { banks: 'RLRLLRLR', dl: 0.02, ga: 0.7, half: 0.22, jit: 0.05, cyl: 8, inL: 80, exL: 60, xtL: 120, pipe: 150, muf: [8, 12], act: 0.05, out: 6, ign: 0.04, crank: 0.002, W: [0.106, 0.266, 0.795], mix: [0.5, 0.5, 1.5],
+      L: 0.36, f1: 250, f2: 1250, drive: 0.7, rough: 0.26, ex: 0.5, intake: 0.15, turbo: 0, burble: 0.5, bright: 600 },
+    // 2.0 l I4 roadster: short runners, intake-forward
+    miata: { ...I4, jit: 0.05, inL: 80, exL: 65, xtL: 95, pipe: 140, muf: [18, 26, 34], act: 0.12, out: 6, ign: 0.04, crank: 0.0015, W: [0.062, 0.089, 0.203], mix: [0.9, 0.45, 1],
+      L: 0.27, f1: 680, f2: 2400, drive: 0.6, rough: 0.10, ex: 0.5, intake: 0.30, turbo: 0, burble: 0, bright: 1100 },
+    // 4.6 l V8 police sedan: long pipes, big muffler, soft pulse
+    crownvic: { banks: 'RRLRLLRL', dl: 0.015, ga: 0.8, half: 0.18, jit: 0.05, cyl: 8, inL: 110, exL: 100, xtL: 150, pipe: 260, muf: [45, 60, 80, 100, 120], act: 0.3, out: 12, ign: 0.065, crank: 0.002, W: [0.061, 0.741, 0.727], mix: [0.3, 0.6, 0.8],
+      L: 0.30, f1: 230, f2: 1100, drive: 0.5, rough: 0.20, ex: 0.3, intake: 0.10, turbo: 0, burble: 0, bright: 300 },
+    // Mercedes-Benz E300 (W213): M274 2.0 l I4, one twin-scroll turbo; refined luxury sedan: smooth, quiet, well muffled, a soft whistle
+    e300: { ...I4, jit: 0.04, inL: 90, exL: 70, xtL: 100, pipe: 200, muf: [40, 55, 70, 85], act: 0.25, out: 10, ign: 0.05, crank: 0.001, W: [0.074, 0.143, 0.204], mix: [0.35, 0.5, 0.8],
+      L: 0.27, f1: 500, f2: 1800, drive: 0.38, rough: 0.07, ex: 0.3, intake: 0.13, turbo: 0.9, burble: 0, bright: 450 },
   };
+  // the model's parameters for a car (engine_worklet.js processorOptions; posted again on a car change)
+  function genParams(e, drift) {
+    return { cylinders: e.cyl, intakeWaveguideLength: e.inL, exhaustWaveguideLength: e.exL, extractorWaveguideLength: e.xtL,
+      intakeOpenReflectionFactor: 0.01, intakeClosedReflectionFactor: 0.95, exhaustOpenReflectionFactor: 0.01, exhaustClosedReflectionFactor: 0.95,
+      ignitionTime: e.ign * (drift ? 0.85 : 1), straightPipeWaveguideLength: e.pipe, straightPipeReflectionFactor: 0.01,
+      mufflerElementsLength: drift ? [Math.round(e.muf[0] * 0.5), Math.round(e.muf[1] * 0.5)] : e.muf, action: Math.min(0.6, drift ? e.act * 0.5 : e.act),
+      outletWaveguideLength: e.out, outletReflectionFactor: 0.01, crank: e.crank * (drift ? 1.5 : 1) };
+  }
   // the organ waltz (3/4, C major): [midi, beats] per note, 16 bars; then chord roots per bar; then 2 bars rest
   const TUNE = [76, 2, 74, 1, 72, 1, 76, 1, 79, 1, 81, 2, 79, 1, 77, 3, 74, 2, 77, 1, 83, 2, 81, 1, 79, 1, 76, 1, 72, 1, 79, 3,
     76, 2, 74, 1, 72, 1, 76, 1, 79, 1, 84, 2, 81, 1, 77, 3, 79, 1, 77, 1, 74, 1, 71, 1, 74, 1, 77, 1, 76, 2, 74, 1, 72, 3];
@@ -90,24 +138,38 @@
     const out = G(0, dest), comp = ac.createDynamicsCompressor(); nodes++;
     comp.threshold.value = -14; comp.knee.value = 10; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.25; comp.connect(out);
     const bus = comp;
+    // ---- engine bus: every engine layer -> engine volume -> rumble high-pass -> soft-knee clipper (x / (1 + x^4)^(1/4), linear
+    // below about 0.7, never above 0.97) -> bus. The clipper reads +-2 at its input, so the bus gain carries a factor 0.5.
+    const engBus = G(0), engHP = F('highpass', 28, 0.7), clip = ac.createWaveShaper(); nodes++;
+    const cc = new Float32Array(2049); for (let i = 0; i < 2049; i++) { const v = (i / 1024 - 1) * 2; cc[i] = v / Math.pow(1 + Math.pow(Math.abs(v), 4), 0.25); }
+    clip.curve = cc; clip.oversample = '2x'; engBus.connect(engHP); engHP.connect(clip); clip.connect(bus);
 
     // ---- engine: osc(cycle freq) -> drive gain (+ combustion AM) -> tanh shaper -> load low-pass -> exhaust formant -> rasp formant -> level
     const engOsc = O('sine', 30), engAm = G(0.5), roughG = G(0), jitG = G(0), shaper = ac.createWaveShaper(); nodes++;
     const curve = new Float32Array(1024); for (let i = 0; i < 1024; i++) curve[i] = Math.tanh(3 * (i / 511.5 - 1)) / Math.tanh(3);
     shaper.curve = curve; shaper.oversample = '2x';
-    const engG = G(0, bus), f2 = F('peaking', 1500, 1.2, engG), f1 = F('peaking', 400, 1.4, f2), engLP = F('lowpass', 600, 0.8, f1);
+    const engG = G(0, engBus), f2 = F('peaking', 1500, 1.2, engG), f1 = F('peaking', 400, 1.4, f2), engLP = F('lowpass', 600, 0.8, f1);
     engOsc.connect(engAm); engAm.connect(shaper); shaper.connect(F('highpass', 12, 0.7, engLP)); brownS.connect(roughG); roughG.connect(engAm.gain); brownS.connect(jitG); jitG.connect(engOsc.frequency);
-    // pulsed exhaust noise: band noise multiplied by the raw exhaust waveform; intake roar; overrun crackle
-    const exG = G(0, bus), exMul = G(0, exG), exBP = F('bandpass', 500, 0.7, exMul); whiteS.connect(exBP); engOsc.connect(exMul.gain);
-    const inG = G(0, bus), inBP = F('bandpass', 1500, 1.1, inG); whiteS.connect(inBP);
-    const popG = G(0, bus), popBP = F('bandpass', 1100, 0.8, popG); crkA.connect(popBP);
+    // the physical model's three outputs (intake, block, exhaust outlet); the node itself arrives when the module has loaded.
+    // Each carries the same pulse train at a different delay, so summed flat they comb-filter each other (6 dB holes at some
+    // rpm): the outlet carries the voice, the intake keeps only its roar above 400 Hz, the block only the idle thrum below 60 Hz
+    const wIn = G(0), inHP = F('highpass', 400, 0.7, engBus), wBlk = G(0), blkLP = F('lowpass', 60, 0.7, engBus), wOut = G(0, engBus);
+    wIn.connect(inHP); wBlk.connect(blkLP);
+    // pulsed exhaust noise: band noise multiplied by the exhaust waveform (the model's outlet, or the synth oscillator); overrun crackle
+    const exG = G(0, engBus), exMul = G(0, exG), exBP = F('bandpass', 500, 0.7, exMul); whiteS.connect(exBP);
+    const exDrv = G(0, exMul.gain), oscDrv = G(1, exMul.gain); engOsc.connect(oscDrv);
+    const inG = G(0, engBus), inBP = F('bandpass', 1500, 1.1, inG); whiteS.connect(inBP);
+    const popG = G(0, engBus), popBP = F('bandpass', 1100, 0.8, popG); crkA.connect(popBP);
     // turbo whistle (also the reverse-gear whine) and blow-off valve
-    const whG = G(0, bus), whOsc = O('sine', 3000, whG);
-    const boG = G(0, bus), boBP = F('bandpass', 3000, 0.9, boG); whiteS.connect(boBP);
-    // ---- tyres: per axle a warbling tone plus narrow band noise; loose-surface crunch from the crackle loop
-    const sqWave = wave([0.15, 0.06, 0.035, 0.018, 0.009], true), sq = [];
+    const whG = G(0, engBus), whOsc = O('sine', 3000, whG);
+    const boG = G(0, engBus), boBP = F('bandpass', 3000, 0.9, boG); whiteS.connect(boBP);
+    // ---- tyres: the squeal is the worklet 'bd-tyres' (engine_worklet.js; one stick-slip voice per tyre plus scrub hiss), made when
+    // the module loads; until then, or where it cannot load, the old per-axle voices (a warbling tone plus narrow band noise) stand in
+    const sqWave = wave([0.15, 0.06, 0.035, 0.018, 0.009], true), sq = [], tyA = [], tyF = [], tyH = [];
     for (let a = 0; a < 2; a++) { const g = G(0, bus), bp = F('bandpass', 900, 9, g); whiteS.connect(bp); sq.push({ g, bp, o: O(sqWave, 900, g) }); }
+    // loose ground never squeals: gravel crunch (the rustle loop), grass swish (soft band noise), and the rumble below
     const grvG = G(0, bus), grvBP = F('bandpass', 2000, 0.6, grvG); crkB.connect(grvBP);
+    const swG = G(0, bus), swBP = F('bandpass', 1200, 0.7, swG); whiteS.connect(swBP);
     const roadG = G(0, bus), roadLP = F('lowpass', 200, 0.7, roadG); brownS.connect(roadLP);
     const windG = G(0, bus), windLP = F('lowpass', 400, 0.5, windG); whiteS.connect(windLP);
     const leafG = G(0, bus), leafHP = F('highpass', 2200, 0.5, leafG); crkB.connect(leafHP);
@@ -145,15 +207,36 @@
       }
       return ac.createPeriodicWave(re, im);
     }
-    let spec = null, E = ENG.dart, drift = false, cyl = 4;
+    let spec = null, E = ENG.dart, drift = false, cyl = 4, drvF = 1, drvR = 1;
     function setCar(s) {
-      spec = s; const id = ENG[s.id] ? s.id : 'dart'; E = ENG[id]; drift = !!s.drift; cyl = E.banks.length;
+      spec = s; const id = ENG[s.id] ? s.id : 'dart'; E = ENG[id]; drift = !!s.drift; cyl = E.cyl;
+      drvF = s.drive === 'RWD' ? 0 : 1; drvR = s.drive === 'FWD' ? 0 : 1;
       engOsc.setPeriodicWave(waves[id] || (waves[id] = engWave(E)));
       f1.frequency.value = E.f1; f2.frequency.value = E.f2 * (drift ? 1.1 : 1); flare = 1;
+      if (wk) wk.port.postMessage(genParams(E, drift));      // the model rebuilds its cylinders, pipes and muffler for this car
     }
+    // ---- the physical model (engine_worklet.js) loads asynchronously; the synth voice plays until it is ready and stays the
+    // fallback where AudioWorklet is missing or the module fails to load (file:// pages, old browsers)
+    let wk = null, pRpm = null, pThr = null, useW = false, tw = null;
+    const ready = (ac.audioWorklet && typeof AudioWorkletNode === 'function' ? ac.audioWorklet.addModule(WORKLET_URL) : Promise.reject(new Error('no AudioWorklet')))
+      .then(() => {
+        wk = new AudioWorkletNode(ac, 'bd-engine', { numberOfInputs: 0, numberOfOutputs: 3, outputChannelCount: [1, 1, 1], processorOptions: genParams(E, drift) }); nodes++;
+        wk.connect(wIn, 0); wk.connect(wBlk, 1); wk.connect(wOut, 2); wk.connect(exDrv, 2);
+        pRpm = wk.parameters.get('rpm'); pThr = wk.parameters.get('throttle'); pRpm.value = rpmNow; pThr.value = 0.3;
+        wk.onprocessorerror = () => { useW = false; console.warn('engine model failed; synth engine voice'); };
+        useW = true;
+        try {
+          tw = new AudioWorkletNode(ac, 'bd-tyres', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2] }); nodes++; tw.connect(bus);
+          for (let i = 0; i < 4; i++) { tyA.push(tw.parameters.get('a' + i)); tyF.push(tw.parameters.get('f' + i)); tyH.push(tw.parameters.get('h' + i)); }
+          tw.onprocessorerror = () => { tw = null; console.warn('tyre model failed; synth squeal'); };
+        } catch (e) { tw = null; console.warn('tyre model unavailable; synth squeal', e); }
+        return true;
+      })
+      .catch((e) => { console.warn('engine model unavailable (' + ((e && e.message) || e) + '); synth engine voice'); return false; });
 
     // ---- state
     let thrS = 0, boost = 0, prevThr = 0, overrun = 0, lastCut = false, blip = 0, flare = 0, gear = 1, wob = 0, rpmNow = 800;
+    let chirp = 0, lastShiftT = 0; const axA = new Float32Array(2), axF = new Float32Array(2);
     let gust = 0.4, gustTo = 0.4, gustT = 0, birdT = 2.5, tuneT = 0, beat = 0, ui = 0;
     const fz0 = 9.81 / 4;
 
@@ -205,17 +288,29 @@
       if (blip > 0) { blip -= dt; thr = Math.max(thr, 0.75); }
       thr = Math.max(thr, flare * 0.6);
       thrS += (thr - thrS) * Math.min(1, dt / 0.05);
-      const rn = clamp((rpm - idle) / (red - idle), 0, 1), ff = rpm / 60 * cyl / 2, d = drift ? 1 : 0;
-      const lvl = title ? 0 : E.L * (1 + 0.45 * d) * ((0.35 + 0.65 * thrS) * (0.45 + 0.55 * rn) + 0.22 * (1 - rn) * (1 - rn) * (1 - rn)) * (drv ? 1 : 0.6);
-      set(engOsc.frequency, rpm / 120, drv ? 0.012 : 0.2);
-      set(jitG.gain, rpm / 120 * (0.022 - 0.014 * rn), 0.1);
-      const drive = Math.min(1, E.drive * (1 + 0.7 * d) * (0.5 + 0.5 * thrS));
-      set(engAm.gain, drive, 0.04); set(roughG.gain, drive * E.rough * (1.4 - rn), 0.1);
-      set(engLP.frequency, 380 + ff * (2 + 3.5 * thrS) + E.bright * thrS, 0.04); set(engLP.Q, 0.7 + 0.9 * thrS, 0.1);
-      set(f1.gain, 2 + 2.5 * thrS, 0.08); set(f2.gain, (drift ? 9 : 2.5) * thrS, 0.08);
-      set(engG.gain, cut ? lvl * 0.12 : lvl, cut || lastCut ? 0.004 : 0.03);
-      set(exG.gain, (cut ? 0.12 : 1) * lvl * E.ex * (0.5 + 0.5 * thrS), cut || lastCut ? 0.004 : 0.03); set(exBP.frequency, E.f1 * 1.3 + ff, 0.05);
-      set(inG.gain, title ? 0 : (cut ? 0.25 : 1) * 0.5 * E.intake * thrS * (0.15 + rn) * (1 + 0.4 * d) * (drv ? 1 : 0.3), cut || lastCut ? 0.004 : 0.05); set(inBP.frequency, 700 + rpm * 0.28, 0.05);
+      const rn = clamp((rpm - idle) / (red - idle), 0, 1), ff = rpm / 60 * cyl / 2, d = drift ? 1 : 0, fast = cut || lastCut;
+      if (useW) {
+        // physical model: rpm and the combustion charge (0.3 at idle .. 1, 0 on the limiter cut) are its inputs; the level law
+        // keeps the idle quiet and the redline loud like the synth voice did, and the clipper catches the rest
+        const w = E.W, lw = title ? 0 : (rn < 0.5 ? w[0] + (w[1] - w[0]) * 2 * rn : w[1] + (w[2] - w[1]) * (2 * rn - 1)) * (1 + 0.35 * d) * (0.7 + 0.3 * thrS) * (drv ? 1 : 0.6);
+        set(pRpm, rpm, drv ? 0.012 : 0.2);
+        set(pThr, cut ? 0 : 0.3 + 0.7 * thrS, fast ? 0.003 : 0.03);
+        set(wIn.gain, lw * E.mix[0] * (0.4 + 0.6 * thrS), 0.05); set(wBlk.gain, lw * E.mix[1], 0.04); set(wOut.gain, lw * E.mix[2] * (cut ? 0.6 : 1), fast ? 0.004 : 0.03);
+        set(exG.gain, (cut ? 0.3 : 1) * lw * E.ex * (1 + 0.6 * d) * (0.5 + 0.5 * thrS), fast ? 0.004 : 0.03); set(exBP.frequency, E.f2 * 0.8 + ff, 0.05);
+        set(exDrv.gain, 0.5, 0.03); set(oscDrv.gain, 0, 0.03); set(engG.gain, 0, 0.03); set(inG.gain, 0, 0.03);
+      } else {
+        const lvl = title ? 0 : E.L * (1 + 0.45 * d) * ((0.35 + 0.65 * thrS) * (0.45 + 0.55 * rn) + 0.22 * (1 - rn) * (1 - rn) * (1 - rn)) * (drv ? 1 : 0.6);
+        set(engOsc.frequency, rpm / 120, drv ? 0.012 : 0.2);
+        set(jitG.gain, rpm / 120 * (0.022 - 0.014 * rn), 0.1);
+        const drive = Math.min(1, E.drive * (1 + 0.7 * d) * (0.5 + 0.5 * thrS));
+        set(engAm.gain, drive, 0.04); set(roughG.gain, drive * E.rough * (1.4 - rn), 0.1);
+        set(engLP.frequency, 380 + ff * (2 + 3.5 * thrS) + E.bright * thrS, 0.04); set(engLP.Q, 0.7 + 0.9 * thrS, 0.1);
+        set(f1.gain, 2 + 2.5 * thrS, 0.08); set(f2.gain, (drift ? 9 : 2.5) * thrS, 0.08);
+        set(engG.gain, cut ? lvl * 0.12 : lvl, fast ? 0.004 : 0.03);
+        set(exG.gain, (cut ? 0.12 : 1) * lvl * E.ex * (0.5 + 0.5 * thrS), fast ? 0.004 : 0.03); set(exBP.frequency, E.f1 * 1.3 + ff, 0.05);
+        set(inG.gain, title ? 0 : (cut ? 0.25 : 1) * 0.5 * E.intake * thrS * (0.15 + rn) * (1 + 0.4 * d) * (drv ? 1 : 0.3), fast ? 0.004 : 0.05); set(inBP.frequency, 700 + rpm * 0.28, 0.05);
+        set(exDrv.gain, 0, 0.03); set(oscDrv.gain, 1, 0.03); set(wIn.gain, 0, 0.03); set(wBlk.gain, 0, 0.03); set(wOut.gain, 0, 0.03);
+      }
       // turbo: boost builds with rpm under load, dumps through the blow-off valve when the throttle snaps shut
       const bt = E.turbo && drv ? clamp((rpm - 1800) / 2600, 0, 1) * thr : 0;
       boost += (bt - boost) * Math.min(1, dt / (bt > boost ? 0.8 : 0.25));
@@ -236,26 +331,46 @@
       lastCut = cut; prevThr = thr;
 
       // ---------------- tyres and road
-      let sF = 0, sR = 0, loose = 0, nGv = 0, nGr = 0, nWt = 0;
-      if (drv) for (let i = 0; i < 4; i++) {
-        const sf = car.surf[i]; if (sf === 2) nGv++; else if (sf === 0) nGr++; else if (sf === 3) nWt++;
-        if (car.air) continue;
-        const sl = car.slip[i] * (car.Fz && car.Fz[i] > 0 ? Math.sqrt(clamp(car.Fz[i] / (spec.m * fz0), 0, 2)) : 1);
-        if (sf === 1) { if (i < 2) sF = Math.max(sF, sl); else sR = Math.max(sR, sl); } else if (sf !== 3) loose = Math.max(loose, sl);
+      // Squeal only on asphalt (surf 1). slip[] is each tyre's slip speed (m/s); slip / (0.13 * speed) approximates the tyre
+      // model's normalised slip (1 = its grip peak: 11 % slip ratio or 8.5 deg), so the squeal sets in just short of the limit
+      // (cornering at 0.85 g: faint; at the limit: clear; rolling straight or under traction control: nothing) and grows with slip
+      // speed (s / (s + 8): level and pitch, so a held drift screeches steadily and follows the slip angle) and load (sqrt Fz). A
+      // wheel turning far slower than the road (handbrake lock) howls a third lower with more hiss. Launch chirp: the driven
+      // tyres when the torque comes back after the 1-2 shift with the pedal down. The worklet adds the grip-loss chirp itself.
+      // ponytail: slip / (0.13 v) stands in for the tyre model's own rho (needs per-wheel velocities); expose rho from physics if the onset feels off
+      const v = drv ? car.speed : 0, air = drv && car.air, sh = drv ? car.shiftT : 0;
+      if (lastShiftT > 0 && sh <= 0 && car.gear === 2 && thr > 0.8 && v < 20) chirp = 1;
+      lastShiftT = sh; chirp *= Math.exp(-dt / 0.08); if (chirp < 0.01) chirp = 0;
+      let gv = 0, gr = 0, wt = 0, gvS = 0, grS = 0; axA[0] = axA[1] = 0;
+      for (let i = 0; i < 4; i++) {
+        let a = 0, f = 800, h = 0;
+        const sf = drv ? car.surf[i] : 1, s = drv && !air ? car.slip[i] : 0;
+        if (sf === 1) {
+          const ch = chirp * (i < 2 ? drvF : drvR);
+          if (s > 0.5) {
+            const z = car.Fz ? clamp(car.Fz[i] / (spec.m * fz0), 0, 2.5) : 1, ld = Math.sqrt(Math.max(z, 0.15)), sp = s / (s + 8);
+            const on = sstep(0.6, 1.3, s / (0.13 * Math.max(v, 3))) * sstep(0.6, 2.4, s);
+            const lk = v > 2 && car.w ? sstep(0.3, 0.9, 1 - Math.abs(car.w[i]) * spec.R / v) : 0;
+            a = 0.12 * on * (0.2 + 0.8 * sp) * ld * (1 - 0.3 * lk);
+            f = 760 * (1 + 0.55 * sp) * (1 + 0.07 * (z - 1)) * (1 - 0.3 * lk);
+            h = 0.075 * on * (0.15 + 0.85 * sp) * ld * (1 + 1.5 * lk);
+          }
+          if (ch > 0) { a += 0.055 * ch; h += 0.02 * ch; f *= 1 + 0.12 * ch; }
+        } else if (drv) { const k = sstep(0.5, 6, s); if (sf === 2) { gv += 0.25; gvS = Math.max(gvS, k); } else if (sf === 0) { gr += 0.25; grS = Math.max(grS, k); } else wt += 0.25; }
+        if (tw) { set(tyA[i], a, 0.02); set(tyF[i], f, 0.03); set(tyH[i], h, 0.03); }
+        else if (a > axA[i >> 1]) { axA[i >> 1] = a; axF[i >> 1] = f; }
       }
-      for (let a = 0; a < 2; a++) {
-        const s = a ? sR : sF, q = sstep(1.5, 10, s), v = sq[a];
-        const f = (a ? 960 : 820) * (1 + 0.03 * clamp(s - 3, 0, 12)) * (1 + 0.02 * Math.sin(wob * (a ? 8.3 : 6.7)) + 0.014 * (Math.random() - 0.5));
-        set(v.o.frequency, f, 0.03); set(v.bp.frequency, f * 1.02, 0.03); set(v.g.gain, 0.9 * q, 0.04);
+      for (let k = 0; k < 2; k++) {      // synth stand-in (worklet not loaded): one voice per axle, the louder tyre
+        const q = clamp(axA[k] / 0.12, 0, 1.3), f = (axF[k] || 800) * (1 + 0.02 * Math.sin(wob * (k ? 8.3 : 6.7)) + 0.014 * (Math.random() - 0.5)), o = sq[k];
+        set(o.o.frequency, f, 0.03); set(o.bp.frequency, f * 1.02, 0.03); set(o.g.gain, 0.9 * q, 0.04);
       }
-      const v = drv ? car.speed : 0, gv = nGv >= 2, gr = !gv && nGr >= 2, lq = sstep(1.5, 9, loose), air = drv && car.air ? 0.15 : 1;
-      
-      set(grvBP.frequency, gv ? 2000 : 900, 0.1);
-      set(grvG.gain, ((gv ? 0.6 : gr ? 0.1 : 0) * clamp(v / 22, 0, 1) + (gv ? 0.5 : gr ? 0.2 : 0) * lq) * air, 0.06);
+      // loose ground, by the share of tyres on it: gravel crunch, grass swish, a dull rumble (brighter and louder wading)
+      const af = air ? 0.15 : 1, asph = drv ? 1 - gv - gr - wt : 1, sv = clamp(v / 22, 0, 1);
+      set(grvG.gain, (gv * (0.6 * sv + 0.5 * gvS) + gr * (0.1 * sv + 0.2 * grS)) * af, 0.06); set(grvBP.frequency, gv >= gr ? 2000 : 900, 0.1);
+      set(swG.gain, gr * (0.12 * sv + 0.2 * grS) * af, 0.08); set(swBP.frequency, 900 + 25 * v + 500 * grS, 0.1);
       const rk = Math.pow(clamp(v / 35, 0, 1.5), 1.2);
-      const wt = nWt >= 2;   // wading: a brighter, louder slosh
-      set(roadLP.frequency, (wt ? 900 : gv ? 420 : gr ? 300 : 170) + v * (gr ? 12 : 6), 0.1);
-      set(roadG.gain, rk * (wt ? 1.2 : gv ? 0.5 : gr ? 0.35 + 0.4 * lq : 0.3) * air, 0.08);
+      set(roadLP.frequency, 170 * asph + 420 * gv + 300 * gr + 900 * wt + v * (6 + 6 * gr), 0.1);
+      set(roadG.gain, rk * (0.3 * asph + 0.5 * gv + (0.35 + 0.4 * grS) * gr + 1.2 * wt) * af, 0.08);
       // ---------------- wind (speed + ambient gusts), leaves, birds
       if ((gustT -= dt) <= 0) { gustT = 1.5 + Math.random() * 5; gustTo = Math.pow(Math.random(), 1.5); }
       gust += (gustTo - gust) * Math.min(1, dt / 1.2);
@@ -294,10 +409,13 @@
         case 'car': gear = 1; flare = 1; break; case 'drive': flare = 1; break;
       }
     }
-    const beep = (f, len, vol) => note(f, ac.currentTime + 0.01, len || 0.2, (vol || 0.25) * 0.55, 1);
-    const setMuted = (m) => set(out.gain, m ? 0 : VOL, 0.08);
-    setMuted(false);
-    return { update, event, beep, setMuted, nodes };
+    const beep = (f, len, v) => note(f, ac.currentTime + 0.01, len || 0.2, (v || 0.25) * 0.55, 1);
+    let mutedG = false;
+    const level = () => set(out.gain, mutedG ? 0 : vol.master, 0.08);
+    const setMuted = (m) => { mutedG = !!m; level(); };
+    const setVolume = () => { level(); set(engBus.gain, 0.5 * vol.engine / 0.8, 0.05); };      // engine 0.8 (the default) = the synth voice's old balance
+    setVolume();
+    return { update, event, beep, setMuted, setVolume, ready, get nodes() { return nodes; }, get voice() { return useW ? 'worklet' : 'synth'; }, get tyres() { return tw; } };
   }
 
   // ---- the live context, created on the first user gesture with sound on; faded out and suspended while muted (saves CPU) and
@@ -313,6 +431,15 @@
   }
   function setMuted(m) { muted = !!m; apply(); }
   document.addEventListener('visibilitychange', apply);
+  // volume contract: values live here so sliders can be applied before the graph exists; master * music goes to the radio
+  let radioSeen = null;
+  function radioSync() { const r = B.radio; radioSeen = r; if (r && r.setVolume) try { r.setVolume(vol.master * vol.music); } catch (e) { console.warn('radio volume', e); } }
+  function setVolume(v) {
+    if (v) for (const k in vol) if (v[k] !== undefined && isFinite(+v[k])) vol[k] = clamp(+v[k], 0, 1);
+    if (g) g.setVolume();
+    radioSync();
+  }
+  const getVolume = () => ({ master: vol.master, engine: vol.engine, music: vol.music });
   function init(on) {
     if (!ac && on !== false) {
       const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
@@ -322,11 +449,13 @@
     else if (g && !quiet() && ac.state === 'suspended') ac.resume();
   }
   B.audio = {
-    init, setMuted, build,
-    update(dt, s) { if (g && ac.state === 'running') g.update(dt, s); },
+    init, setMuted, build, setVolume, getVolume,
+    update(dt, s) { if (B.radio !== radioSeen) radioSync(); if (g && ac.state === 'running') g.update(dt, s); },
     event(n, a, b, c) { if (g && n !== 'frame' && !muted) g.event(n, a, b, c); },      // cues made while muted would all play at once on unmute
     beep(f, len, vol) { if (g && !muted) g.beep(f, len, vol); },
     get context() { return ac; },
     get nodes() { return g ? g.nodes : 0; },
+    get voice() { return g ? g.voice : null; },
+    get ready() { return g ? g.ready : null; },
   };
 })();

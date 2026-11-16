@@ -15,7 +15,8 @@
    Quality 1: the same with the bloom pyramid starting at 1/4 res and no speed blur or glare. Quality 0: bypass.
    Public surface: BD.buildFx({ renderer, scene, camera, W, game }) -> { render(dt, time), resize(w, h, pixelRatio),
    setQuality(0|1|2), params }, also left on BD.fx. params = { bloom, grade, vignette, grain, speed, glare }
-   strengths (1 = as tuned, 0 = off; all 0 reproduces the plain render). Reads game.car.speed and the 'frame'
+   strengths (1 = as tuned, 0 = off; all 0 reproduces the plain render). At night (W.time 'night') the bloom threshold drops to lamp
+   level, the bloom doubles and the sun glare is off (the moon gets bloom only). Reads game.car.speed and the 'frame'
    event; reads no settings, makes no DOM, emits no events. */
 (function () {
   'use strict';
@@ -147,6 +148,8 @@
       let src = rtScene.texture;
       if (rtAA) { mFxaa.uniforms.tex.value = src; mFxaa.uniforms.px.value.set(1 / size.x, 1 / size.y); pass(mFxaa, rtAA); src = rtAA.texture; }
       // bloom pyramid: bright pass into the first level, then each level blurs the one above it at half the size
+      // (at night the threshold drops to lamp level and the bloom doubles, so street lamps, windows and tail lamps glow)
+      const night = W.time === 'night'; mBright.uniforms.thr.value.set(night ? 0.8 : 4.2, night ? 0.45 : 1.6);
       mBright.uniforms.tex.value = src; mBright.uniforms.off.value.set(0.25 / lv[0].width, 0.25 / lv[0].height); pass(mBright, lv[0]);
       for (let i = 0; i < 4; i++) {
         const a = lv[i * 2], b = lv[i * 2 + 1], u = mBlur.uniforms;
@@ -156,7 +159,7 @@
       // sun: screen position from the view-space direction; the 1 px target eases toward the visible share of the disc
       const e = camera.projectionMatrix.elements, s = mSun.uniforms.sun.value;
       v3.copy(W.sunDir).transformDirection(camera.matrixWorldInverse);
-      const on = q > 1 && P.glare > 0 && v3.z < -0.05 && Math.abs(v3.x / v3.z * e[0]) < 1.4 && Math.abs(v3.y / v3.z * e[5]) < 1.4;
+      const on = q > 1 && P.glare > 0 && !night && v3.z < -0.05 && Math.abs(v3.x / v3.z * e[0]) < 1.4 && Math.abs(v3.y / v3.z * e[5]) < 1.4;
       if (q > 1) {
         if (on) s.set(0.5 - 0.5 * v3.x / v3.z * e[0], 0.5 - 0.5 * v3.y / v3.z * e[5], 0.019 * e[0], 0.019 * e[5]); else s.set(-9, -9, 0, 0);
         mSun.uniforms.tex.value = src; mSun.uniforms.k.value = 1 - Math.exp(-Math.max(dt, 0.016) * 12);
@@ -171,7 +174,7 @@
       U.fx.value.set(speed * P.speed, seed * 289);
       U.tScene.value = src; U.tSun.value = rtSun.texture; U.aspect.value = size.x / size.y;
       U.tB0.value = lv[0].texture; U.tB1.value = lv[2].texture; U.tB2.value = lv[4].texture; U.tB3.value = lv[6].texture;
-      U.bw.value.set(0.34, 0.28, 0.22, 0.16).multiplyScalar(0.11 * P.bloom);
+      U.bw.value.set(0.34, 0.28, 0.22, 0.16).multiplyScalar((night ? 0.24 : 0.11) * P.bloom);
       U.grade.value.set(P.grade, P.vignette, P.grain, 0);
       pass(mOut, out);
       info.autoReset = autoReset;

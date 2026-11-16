@@ -16,7 +16,8 @@
    what they did (the band shows from 600 m); terrain and far-terrain meshes are built when first wanted, nearest first; the minimap layers on the first frame.
    Public surface: await BD.buildRoutes({ scene, W, M, game }) (game.js, right after BD.buildWorld; uses W.kit, W.farMesh, W.firMesh,
    W.treeChunks from world.js and the 'buildings-far' material from buildings.js). It wraps W.heightXZ (one continuous surface: the strips'
-   ground with the roads pressed in as the town's are, the decks' own level, a blend over the town's last 8 m), W.surface, W.maskAt, W.inBuilding, W.nearestRoad
+   ground with the roads pressed in as the town's are; on a ribbon and its shoulder the road's own smoothed profile, C1 along the road, as the
+   ribbon draws it; the decks' own level; a blend over the town's last 8 m), W.surface, W.maskAt, W.inBuilding, W.nearestRoad
    (band roads only where a car can stand: 3 m or more inside the fence, so a reset never lands on it) and W.buildCollision (-> W.collide) so they answer inside the corridors, and
    adds W.corridors (the strips), W.inCorridor(X, Z) (inside a corridor's fence: game.js lifts the map-edge clamp there) and
    W.drawMap(ctx, px, py, span) (the corridors on the minimap). W.roads is unchanged: street furniture and challenges stay in town, and
@@ -79,6 +80,75 @@
     const tan = (s, k) => { const n = s.X.length, a = Math.max(0, k - 2), c = Math.min(n - 1, k + 2), tx = s.X[c] - s.X[a], tz = s.Z[c] - s.Z[a], l = Math.hypot(tx, tz) || 1; return [tx / l, tz / l]; };
     const onBridge = (R, k) => R.route.brs.some((b) => k >= b[0] && k <= b[1]);
 
+    // ---------- road profiles: each road's graded levels become a smoothing spline (a real crest or dip stays, the lidar's ripples and 2 cm
+    // steps go); a side road takes the level of a road already done where it overlaps it. heightXZ reads them on and beside the ribbons ----------
+    const LAM = 3000;      // second-difference penalty at 2.5 m samples: ripples under ~110 m smoothed out, the grade changes at most ~1 % per 10 m
+    function whit(h, w, lam) {     // Whittaker smoother (discrete smoothing spline): min sum w (y - h)^2 + lam sum (y[k-1] - 2 y[k] + y[k+1])^2, banded LDL^T
+      const n = h.length, a = new Float64Array(n), b = new Float64Array(n), c = new Float64Array(n), d = new Float64Array(n), l1 = new Float64Array(n), l2 = new Float64Array(n), y = new Float64Array(n);
+      for (let i = 0; i < n; i++) a[i] = w[i];
+      for (let i = 1; i < n - 1; i++) { a[i - 1] += lam; a[i] += 4 * lam; a[i + 1] += lam; b[i - 1] -= 2 * lam; b[i] -= 2 * lam; c[i - 1] += lam; }
+      for (let i = 0; i < n; i++) {
+        l2[i] = i > 1 ? c[i - 2] / d[i - 2] : 0; l1[i] = i ? (b[i - 1] - (i > 1 ? l2[i] * l1[i - 1] * d[i - 2] : 0)) / d[i - 1] : 0;
+        d[i] = a[i] - (i ? l1[i] * l1[i] * d[i - 1] : 0) - (i > 1 ? l2[i] * l2[i] * d[i - 2] : 0); y[i] = w[i] * h[i] - (i ? l1[i] * y[i - 1] : 0) - (i > 1 ? l2[i] * y[i - 2] : 0);
+      }
+      for (let i = 0; i < n; i++) y[i] /= d[i];
+      for (let i = n - 1; i >= 0; i--) y[i] -= (i + 1 < n ? l1[i + 1] * y[i + 1] : 0) + (i + 2 < n ? l2[i + 2] * y[i + 2] : 0);
+      return y;
+    }
+    const prof = (s, k, t, l) => { const t2 = t * t, t3 = t2 * t; return s.H[k] * (2 * t3 - 3 * t2 + 1) + s.H[k + 1] * (3 * t2 - 2 * t3) + l * (s.G[k] * (t3 - 2 * t2 + t) + s.G[k + 1] * (t3 - t2)); };   // cubic Hermite: C1 along the road
+    let sgK = 0, sgT = 0, sgL = 0;
+    function nearSeg(s, L, q0, X, Z) {     // the nearest of road s's segments listed from L[q0] on (one road's run): squared distance; sgK, sgT, sgL its segment, parameter, length
+      let bd = 1e18; const ri = L[q0] >> 16;
+      const SX = s.X, SZ = s.Z;
+      for (let q = q0; q < L.length && L[q] >> 16 === ri; q++) { const k = L[q] & 65535, ax = SX[k], az = SZ[k], ex = SX[k + 1] - ax, ez = SZ[k + 1] - az, px = X - ax, pz = Z - az, u = px * ex + pz * ez; let d;
+        if (u <= 0) d = px * px + pz * pz; else { const l2 = ex * ex + ez * ez; if (u >= l2) d = (px - ex) * (px - ex) + (pz - ez) * (pz - ez); else { const c = px * ez - pz * ex; d = c * c / l2; } }
+        if (d < bd) { bd = d; sgK = k; } }
+      // the parameter between the ribbon's vertex rows (each across its vertex's chord tangent, as K.ribbon lays them), so it runs on from segment
+      // to segment off the centre line too (a plain projection jumps at every vertex of the 0.1 m-rounded polylines: 5 mm steps 4 m out on a grade)
+      const n = s.X.length; let k = sgK, t = 0;
+      for (let it = 0; it < 3; it++) {
+        const a = Math.max(0, k - 1), b = Math.min(n - 1, k + 2), ax = s.X[k + 1] - s.X[a], az = s.Z[k + 1] - s.Z[a], bx = s.X[b] - s.X[k], bz = s.Z[b] - s.Z[k];
+        const dA = ((X - s.X[k]) * ax + (Z - s.Z[k]) * az) / (Math.hypot(ax, az) || 1e-9), dB = ((X - s.X[k + 1]) * bx + (Z - s.Z[k + 1]) * bz) / (Math.hypot(bx, bz) || 1e-9);
+        t = dA - dB > 1e-6 ? dA / (dA - dB) : 0.5;
+        if (t < 0 && k > 0) k--; else if (t > 1 && k < n - 2) k++; else break;
+      }
+      sgK = k; sgT = clamp(t, 0, 1); sgL = Math.hypot(s.X[k + 1] - s.X[k], s.Z[k + 1] - s.Z[k]); return bd;
+    }
+    for (const R of CS) {
+      const g = R.sg = new Map();      // 16 m cells: the segments (road << 16 | k) within hw + 3.6 m, a road's in one run
+      R.roads.forEach((s, ri) => { const m = s.hw + 3.6; for (let k = 0; k + 1 < s.X.length; k++) for (let i = Math.floor((Math.min(s.X[k], s.X[k + 1]) - m) / 16); i <= Math.floor((Math.max(s.X[k], s.X[k + 1]) + m) / 16); i++) for (let j = Math.floor((Math.min(s.Z[k], s.Z[k + 1]) - m) / 16); j <= Math.floor((Math.max(s.Z[k], s.Z[k + 1]) + m) / 16); j++) { const key = i * 65536 + j; (g.get(key) || g.set(key, []).get(key)).push(ri << 16 | k); } });
+      for (const [key, L] of g) g.set(key, Int32Array.from(L));
+      const deck = R.route.deck = new Uint8Array(R.route.X.length); for (const [i0, i1] of R.route.brs) deck.fill(1, i0, i1 + 1);      // segments i0..i1, as onBridge
+      R.roads.forEach((s, ri) => {
+        const n = s.X.length, w = new Float64Array(n).fill(1);
+        if (!ri || s.town) w[0] = 1e6;      // the mouths stay at their town road's level
+        if (ri) for (let k = 0; k < n; k++) {      // on a road already done or 2 m off its edge (not on a deck: nothing passes under one at grade), take its level
+          const L = g.get(Math.floor(s.X[k] / 16) * 65536 + Math.floor(s.Z[k] / 16)); if (!L) continue;
+          for (let q = 0; q < L.length && L[q] >> 16 < ri; q++) { const o = R.roads[L[q] >> 16], d = nearSeg(o, L, q, s.X[k], s.Z[k]); while (q + 1 < L.length && L[q + 1] >> 16 === L[q] >> 16) q++;
+            if (d < (o.hw + 2) ** 2 && !(o === R.route && deck[sgK])) { const v = prof(o, sgK, sgT, sgL); if (Math.abs(v - s.H[k]) < 2) { s.H[k] = v; w[k] = 1e6; } } }
+        }
+        // ponytail: where several lot aisles overlap at different levels (Linton's service roads) a later aisle's ribbon can sit up to 0.7 m off
+        // the level heightXZ gives there (0.2 % of ribbon samples); give a lot's aisles one shared surface if a car is seen sinking or floating there
+        if (n > 4) s.H.set(whit(s.H, w, LAM));
+        const G = s.G = new Float32Array(n), len = (k) => Math.hypot(s.X[k + 1] - s.X[k], s.Z[k + 1] - s.Z[k]) || 1e-3;
+        for (let k = 0; k < n; k++) G[k] = (s.H[Math.min(n - 1, k + 1)] - s.H[Math.max(0, k - 1)]) / ((k ? len(k - 1) : 0) + (k < n - 1 ? len(k) : 0));
+      });
+    }
+    let rW = 0;
+    function roadLvl(R, X, Z) {      // the roads' smooth level at (X, Z) (2 cm under the ribbons, as the pressed ground), and in rW its weight over the ground:
+      // 1 on a ribbon and 0.3 m past it, easing to 0 3.3 m out; laid in road order, each over the ones after it (the route's ribbon is the route's alone,
+      // a side road eases in past its edge); a deck alone and only within hw + 1 of its centre
+      rW = 0; const L = R.sg.get(Math.floor(X / 16) * 65536 + Math.floor(Z / 16)); if (!L) return NaN;
+      let left = 1, sh = 0;
+      for (let q = 0; q < L.length; q++) {
+        const ri = L[q] >> 16, s = R.roads[ri], d = Math.sqrt(nearSeg(s, L, q, X, Z)) - s.hw; while (q + 1 < L.length && L[q + 1] >> 16 === ri) q++;
+        if (!ri && s.deck[sgK]) { if (d < 1) { rW = 1; return prof(s, sgK, sgT, sgL) - 0.02; } continue; }
+        const w = d < 0.3 ? 1 : 1 - sstep((d - 0.3) / 3); if (w <= 0) continue;
+        sh += w * left * (prof(s, sgK, sgT, sgL) - 0.02); left *= 1 - w; if (!left) break;
+      }
+      rW = 1 - left; return rW > 0 ? sh / rW : NaN;
+    }
+
     // route samples (plus a 60 m run straight back into town from the edge: the corridor's mouth, fenced at its sides) in 32 m cells
     for (const R of CS) {
       const s = R.route, [tx, tz] = R.out = Math.abs(s.X[0]) > Math.abs(s.Z[0]) ? [Math.sign(s.X[0]), 0] : [0, Math.sign(s.Z[0])], ext = 24, n = s.X.length + ext, EX = R.EX = new Float32Array(n), EZ = R.EZ = new Float32Array(n), g = R.rg = new Map();
@@ -114,14 +184,14 @@
     for (const R of CS) {
       const { nx, nz } = R, rd = R.rd = new Uint8Array(nx * nz).fill(255), rh = R.rh = new Float32Array(nx * nz), cap = R.cap = new Float32Array(nx * nz).fill(1e9);   // rd: distance past the road edge (0.25 m units), rh: its road's level
       R.roads.forEach((s, ri) => {      // cap: the terrain stays 2 cm under every road and deck within 5.7 m of its edge (one 4 m cell's diagonal), so no triangle pokes through a ribbon
-        const Rr = s.hw + 14, RR = Rr * Rr, st = ri ? 2 : 1;      // side roads by their 5 m source segments
+        const Rr = s.hw + 14, RR = Rr * Rr, st = 1;
         for (let k = 0; k + 1 < s.X.length; k += st) {
           const k1 = Math.min(s.X.length - 1, k + st), br = !ri && onBridge(R, k), ax = s.X[k], az = s.Z[k], ex = s.X[k1] - ax, ez = s.Z[k1] - az, l2 = ex * ex + ez * ez || 1e-9;
           const i0 = Math.max(0, Math.ceil((Math.min(ax, ax + ex) - Rr - R.X0) / 4)), i1 = Math.min(nx - 1, Math.floor((Math.max(ax, ax + ex) + Rr - R.X0) / 4)), j0 = Math.max(0, Math.ceil((Math.min(az, az + ez) - Rr - R.Z0) / 4)), j1 = Math.min(nz - 1, Math.floor((Math.max(az, az + ez) + Rr - R.Z0) / 4));
           for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
-            const x = R.X0 + i * 4 - ax, z = R.Z0 + j * 4 - az, t = clamp((x * ex + z * ez) / l2, 0, 1), dd = (x - ex * t) ** 2 + (z - ez * t) ** 2; if (dd > RR) continue;
+            const x = R.X0 + i * 4 - ax, z = R.Z0 + j * 4 - az, tr = (x * ex + z * ez) / l2, t = clamp(tr, 0, 1), dd = (x - ex * t) ** 2 + (z - ez * t) ** 2; if (dd > RR) continue;
             const d = Math.sqrt(dd) - s.hw, lv = s.H[k] + (s.H[k1] - s.H[k]) * t, q = j * nx + i;
-            if (d < 5.7 && lv - 0.02 < cap[q]) cap[q] = lv - 0.02;
+            if (d < 5.7 && lv - 0.02 < cap[q] && ((tr > -0.4 && tr < 1.4) || (tr < 0 ? !k : k1 === s.X.length - 1))) cap[q] = lv - 0.02;   // not a segment's level 10 m along a grade: one it is level with
             if (s.bridge && d < 2 && lv - 0.02 > R.H[q]) R.H[q] = lv - 0.02;      // the side-road 'bridges' run under 1 m above the ground: an embankment
             if (br) continue; const e = clamp(Math.round(d * 4), 0, 255); if (e < rd[q]) { rd[q] = e; rh[q] = lv; }
           }
@@ -166,7 +236,7 @@
       for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
         const q = j * nx + i, X = R.X0 + i * 4, Z = R.Z0 + j * 4, d = rd[q] / 4; if (!cov[q] || depthIn(X, Z) > 0) continue;
         if (rd[q] > 38) { if (maskOf(R, X, Z) === 3) H[q] -= 1.6; }      // river and pond beds sit below the water sheet
-        else H[q] += (rh[q] - 0.02 - H[q]) * (d <= 3.6 ? 1 : 1 - sstep((d - 3.6) / 6));
+        else { const r = roadLvl(R, X, Z); H[q] += ((rW > 0 ? r : rh[q] - 0.02) - H[q]) * (d <= 3.6 ? 1 : 1 - sstep((d - 3.6) / 6)); }     // the level heightXZ blends in there
         if (cap[q] < H[q]) H[q] = cap[q];
       }
       for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {      // the overlap, drawn under the town's ground: as edgeH over its last 8 m
@@ -185,18 +255,6 @@
       const s = R.route, b = { i0, i1, hw: s.hw + 0.8, x0: 1e9, x1: -1e9, z0: 1e9, z1: -1e9 };
       for (let k = i0; k <= i1; k++) { b.x0 = Math.min(b.x0, s.X[k] - 8); b.x1 = Math.max(b.x1, s.X[k] + 8); b.z0 = Math.min(b.z0, s.Z[k] - 8); b.z1 = Math.max(b.z1, s.Z[k] + 8); }
       R.bridges.push(b);
-    }
-    // the decks span their valleys: within hw + 1 of the route (the parapets stand at hw + 0.25) heightXZ takes the deck's level, eased into the ground over 10 m past each end
-    for (const R of CS) {
-      const g = R.dg = new Map(), s = R.route;
-      for (const [i0, i1] of s.brs) for (let k = Math.max(0, i0 - 4); k < Math.min(s.X.length - 1, i1 + 4); k++) for (let i = Math.floor((Math.min(s.X[k], s.X[k + 1]) - s.hw - 1) / 16); i <= Math.floor((Math.max(s.X[k], s.X[k + 1]) + s.hw + 1) / 16); i++) for (let j = Math.floor((Math.min(s.Z[k], s.Z[k + 1]) - s.hw - 1) / 16); j <= Math.floor((Math.max(s.Z[k], s.Z[k + 1]) + s.hw + 1) / 16); j++) { const key = i * 65536 + j; (g.get(key) || g.set(key, []).get(key)).push(k); }
-    }
-    let dW = 0;
-    function deckH(R, X, Z) {      // the deck's level, and in dW its weight over the ground (0 off the deck)
-      dW = 0; const L = R.dg.get(Math.floor(X / 16) * 65536 + Math.floor(Z / 16)); if (!L) return NaN; const s = R.route; let bd = 1e9, h = NaN, kk = 0;
-      for (const k of L) { const ax = s.X[k], az = s.Z[k], ex = s.X[k + 1] - ax, ez = s.Z[k + 1] - az, t = clamp(((X - ax) * ex + (Z - az) * ez) / (ex * ex + ez * ez || 1e-9), 0, 1), d = Math.hypot(X - ax - ex * t, Z - az - ez * t); if (d < bd) { bd = d; h = s.H[k] + (s.H[k + 1] - s.H[k]) * t; kk = k + t; } }
-      if (bd > s.hw + 1) return NaN; let out = 1e9; for (const [i0, i1] of s.brs) out = Math.min(out, Math.max(0, i0 - kk, kk - i1));
-      dW = clamp(1 - out / 4, 0, 1); return h;
     }
     const groundAt = (X, Z) => { if (inSq(X, Z)) return town.h(X, Z); const R = stripOf(X, Z), h = R ? stripH(R, X, Z) : NaN; return h === h ? h : farAt(X, Z); };   // terrain only (no decks)
 
@@ -727,10 +785,10 @@
 
     // ---------- the world's lookups, answering inside the corridors too ----------
     W.corridors = CS;
-    W.heightXZ = (X, Z) => {      // the strips' ground (roads pressed into it), the decks, and the blend over the town's last 8 m: continuous everywhere a car can go
+    W.heightXZ = (X, Z) => {      // the roads' smooth profiles over the strips' ground (roads pressed into it), the decks, and the blend over the town's last 8 m: continuous everywhere a car can go
       const si = depthIn(X, Z); if (si >= 8) return town.h(X, Z);
       if (si > 0) { const e = edgeH(X, Z, si); return e === e ? e : town.h(X, Z); }
-      const R = stripOf(X, Z); if (R) { const g = stripH(R, X, Z), b = deckH(R, X, Z); if (dW > 0) return g === g ? g + (b - g) * dW : b; if (g === g) return g; }
+      const R = stripOf(X, Z); if (R) { const g = stripH(R, X, Z), r = roadLvl(R, X, Z); if (rW > 0) return g === g ? g + (r - g) * rW : r; if (g === g) return g; }
       return Math.max(Math.abs(X), Math.abs(Z)) < HALF + 60 ? town.h(X, Z) : farAt(X, Z);
     };
     W.maskAt = (X, Z) => { if (inSq(X, Z)) return town.mask(X, Z); const R = stripOf(X, Z); return R ? maskOf(R, X, Z) : 0; };

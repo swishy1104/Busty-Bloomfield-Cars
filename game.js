@@ -13,6 +13,9 @@
   const isTouch = matchMedia('(pointer: coarse)').matches;
   const S = { leaves: store.get('leaves', true), car: store.get('car', 'mazda3'), drift: store.get('drift', true), quality: store.get('quality', isTouch ? 0 : 2), assist: store.get('assist', true), manual: !isTouch && store.get('manual', false), sound: store.get('sound', true), traffic: store.get('traffic', 'light'), tod: store.get('tod', 'golden') };
   if (isTouch) document.body.classList.add('touch');
+  // volume sliders (Options): master, engine, music 0..1, saved as bd.vol.*; audio.js scales its sound by them and hands master x music to the radio
+  const VOL = { master: 0.8, engine: 0.8, music: 0.6 };
+  for (const k in VOL) VOL[k] = clamp(+store.get('vol.' + k, VOL[k]) || 0, 0, 1);
 
   let renderer, scene, camera, W, car, view, env, mode = 'title', panel = null, panelBack = null, time = 0, camMode = 0, camA = 0, camD = 0, shake = 0, crash = 0, crashT = 0, postK = -1, postT = 0;
   const inp = { steer: 0, gas: 0, brake: 0, handbrake: 0, assist: true };
@@ -76,7 +79,7 @@
     const st = W.nearestRoad(-150, -57, 80); Object.assign(home, { x: st.x, y: -st.z, psi: 0 });
     placeCar(hot && hot.x !== undefined ? hot.x : home.x, hot && hot.y !== undefined ? hot.y : home.y, hot && hot.psi !== undefined ? hot.psi : 0);
     const ob = W.obstacles; for (let k = 0; k < ob.length; k += 3) if (ob[k + 2] < 0.35) { const c = cell(ob[k], ob[k + 1]); (posts.get(c) || posts.set(c, []).get(c)).push(k); }
-    renderer.toneMappingExposure = W.setTime(S.tod); W.setLeaves(S.leaves);
+    setTod(S.tod); W.setLeaves(S.leaves);
     applyQuality(); resize(); addEventListener('resize', resize);
     courses = PRESETS.map(snapCourse).concat(store.get('courses', []));
     $('load').hidden = true; for (const id of ['bDrive', 'bTitleCars', 'bTitleRace', 'bTitleOptions']) $(id).disabled = false;
@@ -105,7 +108,7 @@
     if (old) { car.x = old.x; car.y = old.y; car.psi = old.psi; }
     if (view) scene.remove(view.group);
     view = B.buildCar(car.spec); view.group.rotation.order = 'YZX'; view.spin = [0, 0, 0, 0]; view.hood = hoodCam(view, car.spec); scene.add(view.group);
-    if (view.setLights) view.setLights(S.tod === 'dusk');      // lamps on, reflections down after sunset
+    carLights();
     const factory = lin(spec.color).getHex(); view.paint = new Set();      // every material in the factory colour is body paint
     view.group.traverse((o) => { if (o.isMesh) for (const m of Array.isArray(o.material) ? o.material : [o.material]) if (m.color && m.color.getHex() === factory) view.paint.add(m); });
     if (paints[spec.id] !== undefined) for (const m of view.paint) m.color.copy(lin(paints[spec.id]));
@@ -113,6 +116,9 @@
     if (ghost) { scene.remove(ghost); ghost = null; }
     lastGear = car.gear; syncCar(0); buildTach(car.spec.redline); api.emit('car', car.spec);
   }
+  // time of day: the world's lighting and exposure, and the player's lamps (lit at dusk; real headlight beams at night)
+  function carLights() { if (view && view.setLights) view.setLights(W.time === 'dusk' || W.time === 'night', W.time === 'night'); }
+  function setTod(v) { renderer.toneMappingExposure = W.setTime(v); carLights(); }
   // tachometer face: a tick every 500 rpm and a number every 1,000 along the arc (centre 115,118, radius 88 in the dash's 230x128 box)
   let tachRed = 0;
   function buildTach(red) {
@@ -210,7 +216,7 @@
   addEventListener('keyup', (e) => keys.delete(e.code));
   addEventListener('blur', () => keys.clear());
   let padName = null, padMap = store.get('padMap', null), padSetup = null;      // padMap: a layout captured in Options (null = the browser's standard layout)
-  const padPrev = new Uint8Array(18), padHit = new Uint8Array(18);
+  const padPrev = new Uint8Array(20), padHit = new Uint8Array(20);
   const PAD_STD = { steer: { a: 0, s: 1 }, gas: { b: 7 }, brake: { b: 6 }, hb: { b: 0 }, up: { b: 5 }, down: { b: 4 }, cam: { b: 3 }, reset: { b: 1 }, pause: { b: 9 } };
   const PAD_ACTS = ['gas', 'brake', 'hb', 'up', 'down', 'cam', 'reset', 'pause'], padWas = {}, padEdge = {}, PAD_NONE = { steer: { a: 0, s: 1 } }, menuWas = {}, menuEdge = {};
   // a control is a button {b} or an axis {a, r: rest value, t: the end it travels to} (triggers are axes on some pads); 0..1
@@ -232,7 +238,7 @@
     s.map[key] = m; s.idle = false; s.i++;
     if (s.i < PAD_STEPS.length) { padStepText(); return; }
     $('padLive').textContent = ''; padMap = s.map; store.set('padMap', padMap); padSetup = null; padOptText(); if (panelBack) openPanel('pOptions'); else closePanel(); toast('Controller set up');
-  }     // standard pad buttons 0-15, then 16/17 = left stick up/down
+  }     // standard pad buttons 0-15, then 16/17 = left stick up/down, 18/19 = left stick left/right
   function readInput() {
     let steer = (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0) - (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) + touch.l - touch.r;
     let gas = keys.has('KeyW') || keys.has('ArrowUp') || touch.gas ? 1 : 0, brake = keys.has('KeyS') || keys.has('ArrowDown') || touch.brk ? 1 : 0, hb = keys.has('Space') || touch.hb ? 1 : 0;
@@ -244,7 +250,8 @@
     if (gp && gp.mapping !== 'standard' && !padMap && mode === 'drive' && !panel && !padSetup && store.get('padAsked') !== gp.id) { store.set('padAsked', gp.id); padSetupStart(true); toast('Unknown controller layout: set up its buttons'); }      // a pad the browser cannot map: ask once, while driving
     if (gp) {
       const M = padMap || (gp.mapping === 'standard' ? PAD_STD : PAD_NONE), sv = gp.axes[M.steer.a + 1] || 0;      // the stick's vertical axis moves menus; an unknown layout drives nothing until it is set up
-      for (let i = 0; i < 18; i++) { const p = i < 16 ? !!(gp.buttons[i] && gp.buttons[i].pressed) : (i === 16 ? sv < -0.6 : sv > 0.6); padHit[i] = p && !padPrev[i] ? 1 : 0; padPrev[i] = p ? 1 : 0; }
+      const sx = ((gp.axes[M.steer.a] || 0) - (M.steer.r || 0)) * (M.steer.s || 1);      // > 0: stick right
+      for (let i = 0; i < 20; i++) { const p = i < 16 ? !!(gp.buttons[i] && gp.buttons[i].pressed) : i === 16 ? sv < -0.6 : i === 17 ? sv > 0.6 : i === 18 ? sx < -0.6 : sx > 0.6; padHit[i] = p && !padPrev[i] ? 1 : 0; padPrev[i] = p ? 1 : 0; }
       for (const k of PAD_ACTS) { const p = padVal(gp, M[k]) > 0.5; padEdge[k] = p && !padWas[k] ? 1 : 0; padWas[k] = p; }
       const MM = padMap || PAD_STD, odd = !padMap && gp.mapping !== 'standard';      // menus on any pad: A (0) selects; B (1), Start (9, or 11 on Android-style pads) go back
       for (const k of ['hb', 'reset', 'pause']) { const p = padVal(gp, MM[k]) > 0.5 || (odd && k === 'pause' && padVal(gp, { b: 11 }) > 0.5); menuEdge[k] = p && !menuWas[k] ? 1 : 0; menuWas[k] = p; }
@@ -257,12 +264,15 @@
     }
     inp.steer = clamp(steer, -1, 1); inp.gas = gas; inp.brake = brake; inp.handbrake = hb; inp.assist = S.assist;
   }
-  // menus on a pad: D-pad or stick moves the focus, A presses, B or Start goes back (Start on the title drives)
+  // menus on a pad: D-pad or stick moves the focus, A presses, B or Start goes back (Start on the title drives); on a volume
+  // slider, left / right (D-pad or stick) move it by 5 %
   function padMenu() {
-    const root = $(panel || 'title'), a = document.activeElement, on = a && a.tagName === 'BUTTON' && root.contains(a) ? a : null;
+    const root = $(panel || 'title'), a = document.activeElement, on = a && (a.tagName === 'BUTTON' || a.type === 'range') && root.contains(a) ? a : null;
+    const side = padHit[14] || padHit[18] ? -1 : padHit[15] || padHit[19] ? 1 : 0;
     const dir = padHit[12] || padHit[14] || padHit[16] ? -1 : padHit[13] || padHit[15] || padHit[17] ? 1 : menuEdge.hb && !on && panel ? 1 : 0;
-    if (dir) { const l = Array.prototype.filter.call(root.querySelectorAll('button'), (b) => !b.disabled && b.offsetParent), i = l.indexOf(on); if (l.length) l[i < 0 ? 0 : (i + dir + l.length) % l.length].focus({ focusVisible: true }); }
-    else if (menuEdge.hb) { if (on) on.click(); else startDriving(); }
+    if (side && on && on.type === 'range') { if (side > 0) on.stepUp(); else on.stepDown(); on.dispatchEvent(new Event('input')); }
+    else if (dir) { const l = Array.prototype.filter.call(root.querySelectorAll('button, input[type=range]'), (b) => !b.disabled && b.offsetParent), i = l.indexOf(on); if (l.length) l[i < 0 ? 0 : (i + dir + l.length) % l.length].focus({ focusVisible: true }); }
+    else if (menuEdge.hb) { if (on) { if (on.tagName === 'BUTTON') on.click(); } else startDriving(); }
     else if (menuEdge.reset || menuEdge.pause) { if (panel) back(); else if (menuEdge.pause) startDriving(); }
   }
   $('tCam').onclick = () => { camMode = (camMode + 1) % 3; };      // touch: chase / far chase / hood
@@ -440,7 +450,8 @@
   function rumble(strong, weak, ms) { const a = padRef && padRef.vibrationActuator; if (a && a.playEffect) a.playEffect('dual-rumble', { duration: ms, strongMagnitude: clamp(strong, 0, 1), weakMagnitude: clamp(weak, 0, 1) }).catch(() => {}); }
 
   // sound lives in audio.js (BD.audio); these keep the call sites short
-  const initAudio = () => { if (B.audio) B.audio.init(S.sound); };
+  const initAudio = () => { if (!B.audio) return; const fresh = !B.audio.context; B.audio.init(S.sound); if (fresh && B.audio.context && B.audio.setVolume) B.audio.setVolume(VOL); };
+  if (B.audio && B.audio.setVolume) B.audio.setVolume(VOL);      // kept by audio.js until its graph exists
   const beep = (f, len, vol) => { if (B.audio) B.audio.beep(f, len, vol); };
 
   // ------------------------------------------------------------------ HUD
@@ -485,6 +496,7 @@
     // route meets the lot exit, which the nearest-road snap would move 20 m along A St; the finish, up the house's gravel drive)
     { id: 'p-taco', name: 'Taco Bell Run', sub: 'Linton to US 231', laps: 0, pts: [[-18088, 1235, 1], [-18058, 1240, 1], [-18058, 1257, 1], [-17392.1, 1393.1], [-16104.3, 1329.7], [-14834.5, 1324.5], [-13569.6, 1328.9], [-12299.7, 1329.5], [-11034.9, 1318.2], [-10524.7, 1030.4], [-9518.8, 924.2], [-8363.9, 926], [-7214.4, 922.9], [-6647.2, 659.5], [-5291.7, 337.5], [-4477.6, 299.2], [-3663.4, 271.4], [-2899.8, 195.1], [-2142.5, 91.8], [-1045.1, 79.3], [49.7, 55.3], [53.1, -516.5], [420.4, -1428.3], [611.3, -2606.0], [631.3, -2605.4, 1], [648.7, -2603.0, 1], [654.3, -2587.3, 1]] },
   ];
+  PRESETS.find((c) => c.id === 'p-taco').night = true;      // runs at night (startRace); set here, not on the line above, so route edits to it merge cleanly
   let courses = [], race = null, ghost = null, beams = [];
   const bests = store.get('bests', {}), ghosts = store.get('ghosts', {});
   function snapCourse(c) { return Object.assign({}, c, { preset: true, pts: c.pts.map((p) => { if (p[2]) return [p[0], p[1], 1]; const r = W.nearestRoad(p[0], -p[1], 150); return r ? [r.x, -r.z] : p; }) }); }
@@ -503,6 +515,7 @@
     let psi = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
     if (r && !p0[2]) { const a = Math.atan2(-r.tz, r.tx); psi = Math.cos(a - psi) >= 0 ? a : a + Math.PI; }      // a pinned start (a parking lot) faces the next gate, not the road
     placeCar(p0[0], p0[1], psi); Object.assign(safe, { x: p0[0], y: p0[1], psi, ok: true });
+    const tod = course.night ? 'night' : S.tod; if (W.time !== tod) setTod(tod);      // a night course (night: true) runs at night; the player's own time comes back on quit
     const seq = course.laps ? course.pts.slice(1).concat([course.pts[0]]) : course.pts.slice(1);
     // the ghost is recorded every gdt s: 0.1 s, or 0.25 s on the presets over 8 km (a 15 minute run: 3,600 samples, about 55 KB in localStorage)
     race = { course, seq, total: seq.length * (course.laps || 1), gdt: course.preset && courseLen(course) > 8000 ? 0.25 : 0.1, i: 0, t: 0, count: 3.4, state: 'count', rec: [], recT: 0, drift: 0, lastBeep: 4 };
@@ -514,7 +527,7 @@
   function placeBeams() {
     for (let k = 0; k < 2; k++) { const q = race.i + k, g = beams[k]; if (q >= race.total) { g.visible = false; continue; } const p = race.seq[q % race.seq.length]; g.position.set(p[0], W.heightXZ(p[0], -p[1]), -p[1]); g.visible = true; }
   }
-  function quitRace() { if (race) api.emit('raceQuit'); race = null; beams.forEach((b) => { b.visible = false; }); if (ghost) ghost.visible = false; show('race', false); show('arrow', false); show('count', false); show('bQuit', false); $('hud').classList.remove('racing'); }
+  function quitRace() { if (W.time !== S.tod) setTod(S.tod); if (race) api.emit('raceQuit'); race = null; beams.forEach((b) => { b.visible = false; }); if (ghost) ghost.visible = false; show('race', false); show('arrow', false); show('count', false); show('bQuit', false); $('hud').classList.remove('racing'); }
   function updateRace(dt) {
     if (!race) return;
     if (race.state === 'count') {
@@ -672,7 +685,7 @@
   $('bPadSetup').onclick = padSetupStart; $('bPadStd').onclick = () => { padMap = null; store.set('padMap', null); padOptText(); toast('Standard controller layout'); }; padOptText();
   seg('segQuality', S.quality, (v) => { autoQ = false; S.quality = +v; store.set('quality', S.quality); applyQuality(); });
   seg('segAssist', S.assist ? 1 : 0, (v) => { S.assist = v === '1'; store.set('assist', S.assist); });
-  seg('segTime', S.tod, (v) => { S.tod = v; store.set('tod', v); renderer.toneMappingExposure = W.setTime(v); if (view && view.setLights) view.setLights(v === 'dusk'); });
+  seg('segTime', S.tod, (v) => { S.tod = v; store.set('tod', v); setTod(v); });
   seg('segLeaves', S.leaves ? 1 : 0, (v) => { S.leaves = v === '1'; store.set('leaves', S.leaves); W.setLeaves(S.leaves); });
   seg('segTraffic', S.traffic, (v) => { S.traffic = v; store.set('traffic', v); });
   $('segTraffic').parentElement.hidden = !B.buildTraffic;
@@ -707,6 +720,11 @@
   seg('segGear', S.manual ? 1 : 0, (v) => { S.manual = v === '1'; store.set('manual', S.manual); car.manual = S.manual; });
   $('segGear').parentElement.hidden = isTouch;      // no shift pads on a touch screen: always automatic there
   seg('segSound', S.sound ? 1 : 0, (v) => { S.sound = v === '1'; store.set('sound', S.sound); initAudio(); if (B.audio) B.audio.setMuted(!S.sound); });
+  for (const k in VOL) {      // 0-100 % in 5 % steps
+    const el = $('vol_' + k), out = el.nextElementSibling, show = () => { out.textContent = Math.round(VOL[k] * 100) + '%'; };
+    el.value = Math.round(VOL[k] * 100); show();
+    el.oninput = () => { VOL[k] = clamp(el.valueAsNumber / 100, 0, 1); store.set('vol.' + k, VOL[k]); show(); initAudio(); if (B.audio && B.audio.setVolume) B.audio.setVolume(VOL); };
+  }
   seg('segType', 'loop', (v) => { ed.loop = v === 'loop'; $('segLaps').style.visibility = ed.loop ? '' : 'hidden'; edHint(); edDraw(); });
   seg('segLaps', 2, (v) => { ed.laps = +v; });
   const bRestart = document.createElement('button'); bRestart.className = 'btn'; bRestart.textContent = 'Restart race'; bRestart.onclick = () => startRace(race.course); $('bPauseQuit').before(bRestart);

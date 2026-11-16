@@ -11,10 +11,11 @@
    ponytail: the skin has 5 rows across the hood and one optional shoulder crease, so hood bulges, bonnet creases and sculpted
    door lines are not modelled (likeness is profile, window outline and graphics); add rows 10-14 and a crease list to go further.
    Public surface:
-     BD.buildCar(spec) -> { group, wheels[FL,FR,RL,RR], steer[L,R], brake (MeshBasicMaterial), setLights(on), noseX, tailX }
+     BD.buildCar(spec) -> { group, wheels[FL,FR,RL,RR], steer[L,R], brake (MeshBasicMaterial), setLights(on, beams), noseX, tailX }
        local frame +X forward, +Y up, +Z right, origin = centre of gravity on the ground. Body paint is the only material whose
        colour equals lin(spec.color). setLights(true) gives the night look: head, tail and marker lamps lit and the (daytime)
-       environment reflections turned down; setLights(false) restores the day look. No real light sources, nothing per frame.
+       environment reflections turned down; setLights(false) restores the day look. Nothing per frame. setLights(true, true) (the
+       player's car at night) also turns on real headlight beams: one SpotLight (no shadows) and a ground wash, made on first use.
      BD.makeEnv(renderer) -> PMREM environment texture (low warm sun in the south-west, blue zenith, autumn tree line and ground). */
 (function () {
   'use strict';
@@ -645,9 +646,33 @@
       }
     });
     // night look: lamps lit, and the (daytime) environment reflections turned down on this car's paint and on the shared glass and trim
-    const setLights = (on) => { if (lamps) lamps.setAttribute('color', on ? night : day); for (const m of [paint, mats.paint2, sm.glass, sm.trim, sm.chrome, sm.dchrome, sm.rim]) if (m) m.envMapIntensity = m.userData.e * (on ? 0.35 : 1); };
+    // beams (the player's car at night): one real SpotLight from the nose, no shadow map, 85 m reach, plus a faint additive wash on the ground
+    // just ahead (Lambert is lit per vertex and the near road is at grazing incidence, so the light alone leaves it dark). Made on first use.
+    let beam = null;
+    const setLights = (on, beams) => {
+      if (lamps) lamps.setAttribute('color', on ? night : day); for (const m of [paint, mats.paint2, sm.glass, sm.trim, sm.chrome, sm.dchrome, sm.rim]) if (m) m.envMapIntensity = m.userData.e * (on ? (beams ? 0.2 : 0.35) : 1);
+      if (beams && !beam) beam = headBeam(g, c.x0);
+      if (beam) beam.visible = !!beams;
+    };
     return { group: g, wheels, steer, brake, setLights, noseX: c.x0, tailX: c.x0 - c.L };
   };
+
+  let washTex = null;
+  B.headBeam = headBeam;      // shared with car_e300.js and any other custom car
+  function headBeam(g, nose) {
+    const b = new T.Group(), spot = new T.SpotLight(lin(0xfff1dc), 5.5, 85, 0.6, 0.55, 0.5);
+    spot.position.set(nose - 0.3, 3.5, 0); spot.target.position.set(nose + 34, 0, 0);      // raised above the lamps: a light at lamp height grazes the road and lights nothing past 20 m spot.castShadow = false;
+    if (!washTex) {   // half an ellipse: brightest at the nose (the bottom edge), zero at the sides and the far end
+      const cv = document.createElement('canvas'); cv.width = 64; cv.height = 128; const x = cv.getContext('2d'); x.scale(1, 4); const gr = x.createRadialGradient(32, 32, 1, 32, 32, 32);
+      gr.addColorStop(0, '#fff'); gr.addColorStop(0.4, 'rgba(255,255,255,0.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 32); washTex = new T.CanvasTexture(cv);
+    }
+    const wash = new T.Mesh(new T.PlaneGeometry(6, 9).rotateX(-PI / 2).rotateY(-PI / 2).translate(nose + 4.8, 0.14, 0),
+      new T.MeshBasicMaterial({ map: washTex, color: lin(0xfff1dc).multiplyScalar(0.16), transparent: true, blending: T.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }));
+    // the wash is kept level (the car's yaw and ground point only): following the body's pitch sank its far end into the road
+    wash.renderOrder = 2; wash.frustumCulled = false;
+    wash.onBeforeRender = () => { const e = g.matrixWorld.elements, l = Math.hypot(e[0], e[2]) || 1, fx = e[0] / l, fz = e[2] / l; wash.matrixWorld.set(fx, 0, -fz, e[12], 0, 1, 0, e[13], fz, 0, fx, e[14], 0, 0, 0, 1); };
+    b.add(spot, spot.target, wash); g.add(b); return b;
+  }
 
   /** Reflection environment: a small sky dome (blue zenith, warm horizon, autumn tree line and ground, low sun in the south-west) prefiltered with PMREM. */
   B.makeEnv = function (renderer) {

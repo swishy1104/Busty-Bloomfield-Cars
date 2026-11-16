@@ -128,6 +128,8 @@
   .seg button.on { background: var(--cream); color: var(--ink); }
   .opt { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
   .opt label { font-weight: 600; font-size: 18px; }
+  input[type=range] { accent-color: var(--cream); width: 200px; max-width: 50vw; height: 36px; margin: 0; cursor: pointer; }
+  .opt output.vol { font-weight: 700; font-size: 18px; min-width: 3em; text-align: right; font-variant-numeric: tabular-nums; }
   kbd { font: 700 15px var(--text); background: var(--cream); color: var(--ink); border-radius: 3px; padding: 1px 6px; }
   .keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-items: center; }
   .keys span { color: var(--dim); }
@@ -260,7 +262,10 @@
     <p class="fine">Assists add countersteer and feather the throttle so a keyboard can hold a slide. Turn them off for raw physics on a gamepad.</p>
     <div class="opt"><label>Gearbox</label><div class="seg" id="segGear"><button data-v="0">Automatic</button><button data-v="1">Manual</button></div></div>
     <div class="opt"><label>Sound</label><div class="seg" id="segSound"><button data-v="1">On</button><button data-v="0">Off</button></div></div>
-    <div class="opt"><label>Time of day</label><div class="seg" id="segTime"><button data-v="golden">Golden hour</button><button data-v="midday">Midday</button><button data-v="dusk">Dusk</button></div></div>
+    <div class="opt"><label for="vol_master">Volume</label><div class="row"><input type="range" id="vol_master" min="0" max="100" step="5"><output class="vol">80%</output></div></div>
+    <div class="opt"><label for="vol_engine">Engine</label><div class="row"><input type="range" id="vol_engine" min="0" max="100" step="5"><output class="vol">80%</output></div></div>
+    <div class="opt"><label for="vol_music">Music</label><div class="row"><input type="range" id="vol_music" min="0" max="100" step="5"><output class="vol">60%</output></div></div>
+    <div class="opt"><label>Time of day</label><div class="seg" id="segTime"><button data-v="golden">Golden hour</button><button data-v="midday">Midday</button><button data-v="dusk">Dusk</button><button data-v="night">Night</button></div></div>
     <div class="opt"><label>Falling leaves</label><div class="seg" id="segLeaves"><button data-v="1">On</button><button data-v="0">Off</button></div></div>
     <div class="opt"><label>Traffic</label><div class="seg" id="segTraffic"><button data-v="off">Off</button><button data-v="light">Light</button><button data-v="normal">Normal</button></div></div>
     <div class="opt"><label>Controller</label><div class="row"><button class="btn ghost small" id="bPadSetup">Set up buttons</button><button class="btn ghost small" id="bPadStd">Standard layout</button></div></div>
@@ -323,6 +328,7 @@
 <script src="world.js"></script>
 <script src="buildings.js"></script>
 <script src="cars.js"></script>
+<script src="car_e300.js"></script>
 <script src="streets.js"></script>
 <script src="landmarks.js"></script>
 <script src="hero_dq.js"></script>

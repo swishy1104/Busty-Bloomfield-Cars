@@ -41,6 +41,10 @@
       tq: [[800, 300], [3000, 390], [4000, 403], [5000, 355], [5800, 290]], redline: 5800, idle: 700,
       gears: [2.84, 1.55, 1.0, 0.70], final: 3.55, drive: 'RWD', lock: 0.25, mu: 0.9, cda: 0.8, steer: 38, vgov: 129 },
     // W213 E300, US MY2017-20 RWD: M274 2.0 I4 with ONE turbo (not a twin-turbo), 241 hp @ 5500, 370 Nm @ 1300-4000; 9G-TRONIC; 130 mph governed
+    { id: 'e300', name: 'Mercedes-Benz E300', sub: 'Sport sedan', color: 0x16181d, style: 'sedan',
+      m: 1720, wb: 2.939, fw: 0.52, track: 1.61, hcg: 0.54, R: 0.338, L: 4.923, W: 1.852, H: 1.468,
+      tq: [[1000, 270], [1300, 370], [4000, 370], [5000, 333], [5500, 312.5], [6300, 262]], redline: 6300, idle: 650,
+      gears: [5.354, 3.243, 2.252, 1.636, 1.211, 1.0, 0.865, 0.717, 0.601], final: 2.82, drive: 'RWD', lock: 0.15, mu: 1.0, cda: 0.6, steer: 36, vgov: 130 },
   ];
 
   // surface index: 0 grass, 1 asphalt, 2 gravel, 3 water. mu = grip, rr = rolling drag (in g) + rrv per m/s (soft ground and bumps

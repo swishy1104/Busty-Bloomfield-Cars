@@ -609,9 +609,9 @@
     const sunDir = new T.Vector3(-0.62, 0.5, 0.6).normalize();
     W.sunDir = sunDir;
     const sky = new T.Mesh(new T.SphereGeometry(8500, 24, 14), new T.ShaderMaterial({
-      side: T.BackSide, depthWrite: false, fog: false, uniforms: { sun: { value: sunDir }, time: { value: 0 }, zen: { value: new T.Vector3() }, hor: { value: new T.Vector3() }, glow: { value: new T.Vector3() }, cloud: { value: new T.Vector3() } },
+      side: T.BackSide, depthWrite: false, fog: false, uniforms: { sun: { value: sunDir }, time: { value: 0 }, night: { value: 0 }, zen: { value: new T.Vector3() }, hor: { value: new T.Vector3() }, glow: { value: new T.Vector3() }, cloud: { value: new T.Vector3() } },
       vertexShader: 'varying vec3 d; void main(){ d = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: `varying vec3 d; uniform vec3 sun, zen, hor, glow, cloud; uniform float time;
+      fragmentShader: `varying vec3 d; uniform vec3 sun, zen, hor, glow, cloud; uniform float time, night;
         float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
         float n(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(h(i),h(i+vec2(1,0)),f.x), mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x), f.y); }
         float fbm(vec2 p){ float a=0.5, s=0.0; for(int i=0;i<5;i++){ s+=a*n(p); p*=2.03; a*=0.5; } return s; }
@@ -622,6 +622,14 @@
           vec2 uv = v.xz / (y + 0.12) * 1.3 + time * 0.004;
           float cl = smoothstep(0.52, 0.86, fbm(uv)) * smoothstep(0.02, 0.22, y);
           c = mix(c, mix(cloud, mix(cloud, glow, 0.45) + 0.12, pow(s, 3.0)), cl * 0.85);
+          if (night > 0.0) {   // night: stars on a 3D cell grid (one in ~30 cells, twinkling, hidden by cloud) and the moon where the sun was
+            vec3 q = v * 110.0, id = floor(q), f = q - id - 0.5; float r = h(id.xy + id.z * 37.17);
+            float st = step(0.965, r) * smoothstep(0.45, 0.0, length(f)) * (0.45 + 0.95 * h(id.zx + 3.1)) * (0.75 + 0.25 * sin(time * 2.7 + r * 900.0));
+            c += vec3(0.82, 0.88, 1.0) * st * smoothstep(0.03, 0.3, y) * (1.0 - cl) * night;
+            float md = smoothstep(0.99982, 0.99990, s), mm = 0.82 + 0.18 * n(v.xy * 2400.0);
+            c = mix(c, vec3(0.92, 0.94, 1.0) * mm * 1.25, md * night * (1.0 - cl * 0.7));
+            c += vec3(0.16, 0.19, 0.27) * (pow(s, 900.0) * 0.6 + pow(s, 40.0) * 0.12) * night;
+          }
           gl_FragColor = vec4(c, 1.0); }`,
     }));
     sky.frustumCulled = false; sky.renderOrder = -10; scene.add(sky);
@@ -632,16 +640,54 @@
       golden: { dir: [-0.62, 0.5, 0.6], sun: 0xffe2b8, si: 1.85, sky: 0xcfe0ff, gnd: 0x9a7a48, hi: 0.95, fog: 0xf0d8b0, fd: 0.00019, zen: [0.17, 0.40, 0.80], hor: [0.95, 0.80, 0.60], glow: [1.0, 0.62, 0.28], cloud: [1.0, 0.97, 0.93], exp: 1.05, win: 0.1 },
       midday: { dir: [-0.22, 0.86, 0.46], sun: 0xfff6e6, si: 2.0, sky: 0xd4e4ff, gnd: 0x8c8660, hi: 1.0, fog: 0xdbe6ee, fd: 0.00015, zen: [0.13, 0.36, 0.84], hor: [0.74, 0.85, 0.95], glow: [1.0, 0.92, 0.75], cloud: [1.0, 1.0, 1.0], exp: 1.0, win: 0 },
       dusk: { dir: [-0.9, 0.13, 0.42], sun: 0xff9050, si: 1.35, sky: 0x8f9ccc, gnd: 0x6a503c, hi: 0.72, fog: 0xd9a184, fd: 0.00024, zen: [0.10, 0.17, 0.42], hor: [0.99, 0.58, 0.32], glow: [1.0, 0.45, 0.16], cloud: [0.86, 0.66, 0.62], exp: 1.12, win: 1.25 },
+      // night: the directional light is the moon (low in the east-south-east, so it still casts the shadows), the sky draws stars and the moon
+      night: { dir: [0.84, 0.3, 0.34], sun: 0x9db4ff, si: 0.3, sky: 0x40507e, gnd: 0x141519, hi: 0.22, fog: 0x0e1424, fd: 0.00042, zen: [0.004, 0.007, 0.02], hor: [0.04, 0.05, 0.09], glow: [0.02, 0.025, 0.035], cloud: [0.035, 0.04, 0.055], exp: 1.45, win: 1.5, night: 1 },
     };
-    /** Switches the lighting preset ('golden' | 'midday' | 'dusk'); returns the tone-mapping exposure to use. */
+    /** Switches the lighting preset ('golden' | 'midday' | 'dusk' | 'night'); returns the tone-mapping exposure to use. */
     W.setTime = function (name) {
       const t = TIMES[name] || TIMES.golden, u = sky.material.uniforms;
       sunDir.set(t.dir[0], t.dir[1], t.dir[2]).normalize(); sun.color.copy(lin(t.sun)); sun.intensity = t.si;
       hemi.color.copy(lin(t.sky)); hemi.groundColor.copy(lin(t.gnd)); hemi.intensity = t.hi;
       scene.fog.color.copy(lin(t.fog)); scene.fog.density = t.fd;
-      u.zen.value.fromArray(t.zen); u.hor.value.fromArray(t.hor); u.glow.value.fromArray(t.glow); u.cloud.value.fromArray(t.cloud);
+      u.zen.value.fromArray(t.zen); u.hor.value.fromArray(t.hor); u.glow.value.fromArray(t.glow); u.cloud.value.fromArray(t.cloud); u.night.value = t.night || 0;
+      if (t.night && !lampLight && W.streets) lampLight = lampLights();
+      if (lampLight) lampLight.visible = !!t.night;
+      const rm = t.night ? roadNight() : W.kit.roadMat, was = rm === W.kit.roadMat ? nightRoad : W.kit.roadMat;
+      if (was) scene.traverse((o) => { if (o.material === was) o.material = rm; });
       W.windowGlow(t.win); W.time = name in TIMES ? name : 'golden'; return t.exp;
     };
+    // night street lighting, made on the first switch to night (streets.js has placed the lamps by then): a soft pool on the ground under
+    // every lamp (one additive mesh draped over the ground, 7x7 vertices per pool) and a halo on every head (one Points draw)
+    // ...and the asphalt lit per pixel: Lambert lights per vertex and a road ribbon has a vertex only at each edge, so a headlight cone
+    // (much narrower than the road at 10 m) would light it in saw-teeth. At night every mesh on W.kit.roadMat (town and corridors) gets
+    // a Phong twin with a faint sheen, its asphalt 2.2x paler so the road reads in headlights that do not burn out the verges; the day keeps the cheaper Lambert.
+    let lampLight = null, nightRoad = null;
+    function roadNight() {
+      const m = W.kit.roadMat;
+      return nightRoad || (nightRoad = new T.MeshPhongMaterial({ vertexColors: true, map: m.map, color: new T.Color(2.2, 2.2, 2.2), specular: lin(0x1c1c1c), shininess: 24, polygonOffset: true, polygonOffsetFactor: m.polygonOffsetFactor, polygonOffsetUnits: m.polygonOffsetUnits }));
+    }
+    function lampLights() {
+      const O = W.obstacles, r0 = W.streets.obstacles, hAtNow = W.heightXZ, b = Buf(), hp = [], n = 6;
+      for (let k = r0[0]; k < r0[1]; k += 3) {
+        const r = O[k + 2]; if (r !== 0.16 && r !== 0.14) continue;   // streets.js's lamp posts: 0.16 the ornamental posts downtown (head 4.2 m up), 0.14 the cobra-heads (8.2 m, 2.85 m out toward the road)
+        let x = O[k], z = O[k + 1], hy = 4.2, R = 8;
+        if (r === 0.14) { const q = W.nearestRoad(x, z, 30); if (q) { const dx = q.x - x, dz = q.z - z, l = Math.hypot(dx, dz) || 1; x += dx / l * 2.85; z += dz / l * 2.85; } hy = 8.18; R = 13; }
+        hp.push(x, hAtNow(x, z) + hy, z);
+        const v0 = b.pos.length / 3;
+        for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) {
+          const px = x + (2 * i / n - 1) * R, pz = z + (2 * j / n - 1) * R; b.pos.push(px, hAtNow(px, pz) + 0.2, pz); b.uv.push(i / n, j / n);
+          if (i && j) { const a = v0 + j * (n + 1) + i; b.idx.push(a - n - 2, a - 1, a - n - 1, a - 1, a, a - n - 1); }
+        }
+      }
+      const g = new T.Group(); g.name = 'night-lamps';
+      if (!hp.length) return g;
+      const soft = (inner) => canvasTex(64, 64, (c, w) => { const gr = c.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); gr.addColorStop(0, '#fff'); gr.addColorStop(inner, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gr; c.fillRect(0, 0, w, w); });
+      const pool = new T.Mesh(bufGeo(b), new T.MeshBasicMaterial({ map: soft(0.45), color: lin(0xffd49a).multiplyScalar(0.5), transparent: true, blending: T.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -8 }));
+      const hg = new T.BufferGeometry(); hg.setAttribute('position', new T.BufferAttribute(new Float32Array(hp), 3));
+      const halo = new T.Points(hg, new T.PointsMaterial({ size: 2.6, map: soft(0.18), color: lin(0xffe2b0).multiplyScalar(0.8), transparent: true, blending: T.AdditiveBlending, depthWrite: false, sizeAttenuation: true }));
+      pool.frustumCulled = halo.frustumCulled = false; pool.renderOrder = 2;   // ponytail: ~70 pools in one always-drawn mesh (7k triangles); split by district if the lamp count grows
+      g.add(pool, halo); scene.add(g); return g;
+    }
     W.setTime('golden'); W.sun = sun; W.hemi = hemi; W.sky = sky;
     scene.add(hemi, sun, sun.target);
     sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.35; sun.shadow.camera.near = 10; sun.shadow.camera.far = 700;
