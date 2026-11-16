@@ -145,6 +145,7 @@
   #loadFill { height: 100%; width: 0; background: var(--gold); transition: width .2s; }
   #loadText { font-size: 15px; letter-spacing: .08em; text-transform: uppercase; text-shadow: 0 1px 4px #000; }
   #title .btn.primary { font: 30px/1 var(--display); letter-spacing: .02em; text-transform: none; padding: 14px 44px; box-shadow: 0 5px 0 #7a1a1f; }
+  #pEditor.drop > .row:not(#edDrops) { display: none; } #pEditor:not(.drop) #edDrops { display: none; }
   #mainMenu { display: flex; flex-direction: column; gap: 10px; width: min(300px, 100%); } #mainMenu .btn { width: 100%; justify-content: center; }
   #mainMenu .btn.ghost { font-size: 20px; padding: 11px 16px; letter-spacing: .08em; }
   #title .credit { font-size: 13px; color: var(--cream); opacity: .8; text-shadow: 0 1px 3px #000; max-width: 40em; }
@@ -184,6 +185,7 @@
         <button class="btn ghost small" id="bCourses">Races</button>
         <button class="btn ghost small" id="bOptions">Options</button>
         <button class="btn ghost small" id="bPhoto">Photo</button>
+        <button class="btn ghost small" id="bMap">Map</button>
         <button class="btn ghost small" id="bReset">Reset</button>
         <button class="btn primary small" id="bQuit" hidden>Quit race</button>
       </div>
@@ -242,6 +244,7 @@
     <div class="head"><h2>Create a course</h2><button class="btn small ghost" id="bEdCancel">Cancel</button></div>
     <p id="edHint">Tap streets to drop checkpoints in driving order. The first one is the start line. Drag to pan, pinch or scroll to zoom.</p>
     <div id="edWrap"><canvas id="edMap"></canvas><div id="edZoom"><button class="btn small" id="bZin" aria-label="Zoom in">+</button><button class="btn small" id="bZout" aria-label="Zoom out">−</button></div></div>
+    <div class="row" id="edDrops"><button class="btn small ghost" data-drop="square">Courthouse square</button><button class="btn small ghost" data-drop="taco">Taco Bell, Linton</button><button class="btn small ghost" data-drop="north">North on IN-157</button><button class="btn small ghost" data-drop="south">South on US-231</button></div>
     <div class="row">
       <div class="seg" id="segType"><button data-v="loop">Loop</button><button data-v="sprint">Sprint</button></div>
       <div class="seg" id="segLaps"><button data-v="1">1 lap</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="5">5</button></div>
@@ -289,6 +292,7 @@
       <div><kbd>C</kbd> <kbd>P</kbd></div><span>Change camera, photo mode (drag to look, scroll to zoom)</span>
       <div><kbd>R</kbd> <kbd>Esc</kbd></div><span>Reset onto the nearest street, pause</span>
       <div><kbd>G</kbd> <kbd>M</kbd> <kbd>O</kbd> <kbd>J</kbd> <kbd>H</kbd></div><span>Garage, races, options, goals, controls</span>
+      <div><kbd>T</kbd></div><span>Map: tap any street to drop your car there</span>
     </div>
       <div>Gamepad</div><span>Left stick steer · right trigger gas · left trigger brake · A handbrake · bumpers shift down / up · Y camera · B reset · Start pause · D-pad or stick and A in menus. Different on your pad? Options → Controller → Set up buttons.</span>
     </div>
@@ -299,7 +303,7 @@
 
   <div class="panel" id="pPause" hidden>
     <div class="head"><h2>Paused</h2><button class="btn small" data-close>Resume</button></div>
-    <div class="row"><button class="btn" id="bPauseReset">Reset car</button><button class="btn" id="bPauseGarage">Garage</button><button class="btn" id="bPauseRaces">Races</button><button class="btn" id="bPauseOptions">Options</button><button class="btn" id="bPausePhoto">Photo mode</button><button class="btn" id="bPauseHelp">Controls</button><span id="pauseExtra" style="display:contents"></span><button class="btn primary" id="bPauseQuit" hidden>Quit race</button></div>
+    <div class="row"><button class="btn" id="bPauseReset">Reset car</button><button class="btn" id="bPauseMap">Map</button><button class="btn" id="bPauseGarage">Garage</button><button class="btn" id="bPauseRaces">Races</button><button class="btn" id="bPauseOptions">Options</button><button class="btn" id="bPausePhoto">Photo mode</button><button class="btn" id="bPauseHelp">Controls</button><span id="pauseExtra" style="display:contents"></span><button class="btn primary" id="bPauseQuit" hidden>Quit race</button></div>
   </div>
 
   <div class="panel" id="pFinish" hidden>

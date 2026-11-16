@@ -202,6 +202,7 @@
     else if (e.code === 'KeyM') openPanel('pCourses');
     else if (e.code === 'KeyO') openPanel('pOptions');
     else if (e.code === 'KeyH') openPanel('pHelp');
+    else if (e.code === 'KeyT') openDropMap();
     else if (e.code === 'KeyP') setPhoto(!photo);
     else if (e.code === 'KeyE' || e.code === 'ShiftLeft') P.shift(car, 1);
     else if (e.code === 'KeyQ' || e.code === 'ControlLeft') P.shift(car, -1);
@@ -252,7 +253,7 @@
       if (padSetup) padCapture(gp);
       else if (photo) { if (menuEdge.reset || menuEdge.pause) setPhoto(false); }
       else if (panel || mode === 'title') padMenu();
-      else { if (padEdge.up) P.shift(car, 1); if (padEdge.down) P.shift(car, -1); if (padEdge.cam) camMode = (camMode + 1) % 3; if (padEdge.reset) resetCar(); if (padEdge.pause) pause(); }
+      else { if (padEdge.up) P.shift(car, 1); if (padEdge.down) P.shift(car, -1); if (padEdge.cam) camMode = (camMode + 1) % 3; if (padEdge.reset) resetCar(); if (padEdge.pause) pause(); if (padHit[8] && !padMap && gp.mapping === 'standard') openDropMap(); }      // View / Back / Select opens the map
     }
     inp.steer = clamp(steer, -1, 1); inp.gas = gas; inp.brake = brake; inp.handbrake = hb; inp.assist = S.assist;
   }
@@ -589,6 +590,7 @@
   const edUp = (e) => {
     const had = ed.ptrs.delete(e.pointerId); if (!had || ed.ptrs.size || ed.moved > 6 || e.type === 'pointercancel') return;
     const s = edC.clientWidth / 2048 * ed.zoom, mx = ed.cx + (e.offsetX - edC.clientWidth / 2) / s, my = ed.cy + (e.offsetY - edC.clientHeight / 2) / s, x = mx / W.mapScale - W.HALF, z = my / W.mapScale - W.HALF;
+    if (ed.drop) { dropAt(x, z, 120); return; }
     const r = W.nearestRoad(x, z, 90);
     if (!r || Math.abs(r.x) > W.PLAY - 20 || Math.abs(r.z) > W.PLAY - 20) { $('edHint').textContent = 'No street there. Tap closer to a road inside the map.'; return; }
     if (ed.pts.length >= 40) { $('edHint').textContent = 'A course holds up to 40 checkpoints.'; return; }
@@ -598,9 +600,24 @@
   edC.addEventListener('wheel', (e) => { e.preventDefault(); edZoom(e.deltaY < 0 ? 1.25 : 0.8, e.offsetX, e.offsetY); }, { passive: false });
   $('bZin').onclick = () => edZoom(1.6, edC.clientWidth / 2, edC.clientHeight / 2); $('bZout').onclick = () => edZoom(1 / 1.6, edC.clientWidth / 2, edC.clientHeight / 2);
   function edHint() { const n = ed.pts.length; $('edHint').textContent = n === 0 ? 'Tap streets to drop checkpoints in driving order. The first one is the start line. Drag to pan, pinch or scroll to zoom.' : n === 1 ? 'Start line set. Tap the next street corner.' : n + ' checkpoints. ' + (ed.loop ? 'The loop closes back to the start.' : 'The last one is the finish.'); }
-  function openEditor() { ed.pts = []; ed.zoom = 3; ed.cx = (car.x + W.HALF) * W.mapScale; ed.cy = (-car.y + W.HALF) * W.mapScale; edClampView(); $('edName').value = ''; openPanel('pEditor'); edHint(); seg('segType', ed.loop ? 'loop' : 'sprint'); seg('segLaps', String(ed.laps)); requestAnimationFrame(edDraw); }
+  // map view = the course editor's map in 'drop' mode: a tap on a street (or a place button) puts the car there, facing along the road
+  const DROPS = { taco: [-18087.6, 1255.3], north: [1942.9, 6188.8], south: [523, -2560] };
+  function setDrop(on) { ed.drop = on; $('pEditor').classList.toggle('drop', on); $('pEditor').querySelector('h2').textContent = on ? 'Map' : 'Create a course'; $('bEdCancel').textContent = on ? 'Close' : 'Cancel'; }
+  function openDropMap() {
+    if (!W || mode !== 'drive') return; if (race && race.state !== 'done') { toast('Quit the race first: Menu, then Quit race'); return; }
+    setDrop(true); ed.pts = []; ed.zoom = 3; ed.cx = (car.x + W.HALF) * W.mapScale; ed.cy = (-car.y + W.HALF) * W.mapScale; edClampView(); openPanel('pEditor');
+    $('edHint').textContent = 'Tap any street to drop your car there. Drag to pan, pinch or scroll to zoom.'; requestAnimationFrame(edDraw);
+  }
+  function dropAt(X, Z, maxD) {
+    const r = W.nearestRoad(X, Z, maxD); if (!r) { $('edHint').textContent = 'No street there. Tap on or next to a road.'; return; }
+    setDrop(false); closePanel(); placeCar(r.x, -r.z, Math.atan2(-(r.tz || 0), r.tx || 1)); toast('Dropped on ' + (r.name || 'the road'));
+  }
+  for (const b of document.querySelectorAll('[data-drop]')) b.onclick = () => { const k = b.dataset.drop; if (k === 'square') { setDrop(false); closePanel(); placeCar(home.x, home.y, home.psi); toast('Dropped at the courthouse square'); } else dropAt(DROPS[k][0], -DROPS[k][1], 250); };
+  function openEditor() { setDrop(false); ed.pts = []; ed.zoom = 3; ed.cx = (car.x + W.HALF) * W.mapScale; ed.cy = (-car.y + W.HALF) * W.mapScale; edClampView(); $('edName').value = ''; openPanel('pEditor'); edHint(); seg('segType', ed.loop ? 'loop' : 'sprint'); seg('segLaps', String(ed.laps)); requestAnimationFrame(edDraw); }
   $('bNewCourse').onclick = openEditor;
+  $('bMap').onclick = openDropMap; $('bPauseMap').onclick = () => { closePanel(); openDropMap(); };
   $('bEdCancel').onclick = () => {      // checkpoints are only thrown away on a second press
+    if (ed.drop) { setDrop(false); closePanel(); return; }
     const b = $('bEdCancel'); if (ed.pts.length && !b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'Discard?'; $('edHint').textContent = 'Press again to throw away ' + ed.pts.length + (ed.pts.length > 1 ? ' checkpoints.' : ' checkpoint.'); setTimeout(() => { delete b.dataset.sure; b.textContent = 'Cancel'; }, 2500); return; }
     openPanel('pCourses');
   };
