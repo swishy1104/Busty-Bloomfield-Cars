@@ -45,6 +45,11 @@
       m: 1720, wb: 2.939, fw: 0.52, track: 1.61, hcg: 0.54, R: 0.338, L: 4.923, W: 1.852, H: 1.468,
       tq: [[1000, 270], [1300, 370], [4000, 370], [5000, 333], [5500, 312.5], [6300, 262]], redline: 6300, idle: 650,
       gears: [5.354, 3.243, 2.252, 1.636, 1.211, 1.0, 0.865, 0.717, 0.601], final: 2.82, drive: 'RWD', lock: 0.15, mu: 1.0, cda: 0.6, steer: 36, vgov: 130 },
+    // golf cart (player.js / car_cart.js): a 48 V electric fleet cart, 24 km/h governed, one speed, rear drive. hidden: the garage does not list it.
+    { id: 'cart', name: 'Golf cart', sub: 'Electric fleet cart', color: 0xf3f3ee, style: 'cart', hidden: true,
+      m: 450, wb: 1.65, fw: 0.42, track: 1.0, hcg: 0.45, R: 0.23, L: 2.4, W: 1.2, H: 1.8,
+      tq: [[0, 60], [2400, 60], [3000, 30]], redline: 3000, idle: 200,
+      gears: [1.0], final: 10, drive: 'RWD', lock: 0.3, mu: 0.85, cda: 1.1, steer: 35, vgov: 15.6 },
   ];
 
   // surface index: 0 grass, 1 asphalt, 2 gravel, 3 water. mu = grip, rr = rolling drag (in g) + rrv per m/s (soft ground and bumps

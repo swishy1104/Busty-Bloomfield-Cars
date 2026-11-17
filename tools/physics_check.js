@@ -8,6 +8,7 @@ const I = (o) => Object.assign({ steer: 0, gas: 0, brake: 0, handbrake: 0 }, o);
 const verbose = process.argv.includes('-v');
 const rows = [];
 for (const spec of P.CARS) {
+  if (spec.hidden) continue;      // the golf cart (24 km/h) is not a car: player.js drives it, the garage hides it
   // 0-60 mph, stock
   let c = P.makeCar(spec, false), t60 = null;
   run(c, I({ gas: 1 }), 20, flat, (t, c) => { if (t60 === null && c.speed * MPH >= 60) t60 = t; });

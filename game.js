@@ -673,6 +673,7 @@
     }
     const list = $('carList'); list.textContent = '';
     for (const c of P.CARS) {
+      if (c.hidden) continue;      // the golf cart (player.js, car_cart.js) is driven from the course, never picked here
       const s = P.makeCar(c, S.drift).spec, b = document.createElement('button'); b.className = 'item' + (c.id === S.car ? ' sel' : '');
       const sw = document.createElement('i'); sw.className = 'sw'; sw.style.background = hex(paints[c.id] === undefined ? c.color : paints[c.id]);
       const info = document.createElement('div'); info.className = 'grow'; const n = document.createElement('b'); n.textContent = c.name; const sp = document.createElement('span');
