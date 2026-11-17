@@ -424,6 +424,9 @@
     if (!gp) return;
     const aiming = R.phase === 'address' || R.phase === 'power' || R.phase === 'acc';
     for (let i = 0; i < 16; i++) { const q = gp.buttons[i], p = q && (q.pressed || q.value > 0.6) ? 1 : 0, hit = p && !padPrev[i]; padPrev[i] = p; if (!hit) continue;
+      if (i === 1) { if (R.phase === 'address') { R.phase = 'walk'; pvDirty = true; } else if (R.phase === 'drop') drop(1); continue; }
+      if (i === 8) { openCard(); continue; } if (i === 10 || i === 11) { togglePutt(); continue; }
+      if ((i === 14 || i === 15) && aiming) { R.aim += (i === 14 ? 1 : -1) * (R.putt ? 0.0035 : 0.0087); pvDirty = true; continue; }      // fine aim: 0.2 deg putting, 0.5 deg otherwise
       if (i === 0) click(); else if (i === 4) cycleClub(-1); else if (i === 5) cycleClub(1); else if (i === 3 && (aiming || !B.player)) cycleCam(); else if (i === 12 && aiming) { R.traj = Math.min(1, R.traj + 1); pvDirty = true; } else if (i === 13 && aiming) { R.traj = Math.max(-1, R.traj - 1); pvDirty = true; } else if (i === 14) togglePutt(); else if (i === 15) openCard(); else if (i === 1 && R.phase === 'drop') drop(1); }
     if (aiming) { const sx = gp.axes[0] || 0; if (Math.abs(sx) > 0.15) { R.aim -= sx * dt * (R.putt ? 0.2 : 0.5); pvDirty = true; }
       const rx = gp.axes[2] || 0, ry = gp.axes[3] || 0; if (Math.abs(rx) > 0.2 || Math.abs(ry) > 0.2) { if (camMode !== 1) cycleCam(); camMode = 1; fl.yaw -= rx * dt * 2; fl.pitch = clamp(fl.pitch + ry * dt * 1.2, -0.1, 1.2); } }
@@ -488,7 +491,7 @@ body:not(.touch) #gBtns .pad:not(#gSwing){display:none} body:not(.touch) #gSwing
     const help = document.getElementById('pHelp'), kb = help.querySelector('.kb'), tp = help.querySelector('.tp');
     if (kb) kb.insertAdjacentHTML('beforeend', '<div><kbd>Space</kbd></div><span>Golf: swing meter click (start, power, accuracy)</span><div><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd></div><span>Golf: aim, trajectory (high / punch); drag the mouse to look around</span><div><kbd>1</kbd>-<kbd>9</kbd> <kbd>0</kbd> <kbd>[</kbd> <kbd>]</kbd></div><span>Golf: choose a club</span><div><kbd>P</kbd> <kbd>C</kbd> <kbd>M</kbd></div><span>Golf: putting mode, camera, scorecard</span>');
     if (tp) tp.insertAdjacentHTML('beforeend', '<div><kbd>SWING</kbd></div><span>Golf: swing meter click (start, power, accuracy)</span><div><kbd>AIM</kbd> <kbd>PUTT</kbd> <kbd>CAM</kbd> <kbd>CARD</kbd></div><span>Golf: aim, putting mode, camera, scorecard; the club row picks a club</span>');
-    const gpRow = help.querySelector('.keys > span:last-of-type'); if (gpRow) gpRow.insertAdjacentHTML('afterend', '<div>Golf pad</div><span>A swing click · left stick aim · right stick look · bumpers club · Y camera · D-pad up / down trajectory, left putting mode, right scorecard · B replay after a water drop</span>');
+    const gpRow = help.querySelector('.keys > span:last-of-type'); if (gpRow) gpRow.insertAdjacentHTML('afterend', '<div>Golf pad</div><span>Walk to the ball with the left stick (RT runs) · A address the ball, then A start / power / accuracy · B step back from the ball (or replay after a water drop) · left stick aim · D-pad left / right fine aim while aiming · D-pad up / down trajectory · LB / RB club · Y camera · right stick look around · L3 or D-pad left (walking) putting mode · View or D-pad right (walking) scorecard · X get in / out of the cart or car</span>');
     B.game.addMenuButton('Golf', openCard);
     // free-look: drag on the canvas while aiming, wheel to zoom
     const view = document.getElementById('view'); let drag = null;

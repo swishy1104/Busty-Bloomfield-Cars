@@ -30,7 +30,8 @@
   if (!T || !B.game || !P) return;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v), hyp = Math.hypot, PI = Math.PI, lin = (hex) => new T.Color(hex).convertSRGBToLinear();
   const store = B.game.store, $ = (id) => document.getElementById(id), toast = (m) => B.game.toast(m);
-  const WALK = 1.6, RUN = 4.0, REACH = 1.6, DOOR_R = 1.5;
+  const WALK = 3.0, RUN = 7.0,      // a brisk game walk and a sprint (were 1.6 and 4.0)
+    REACH = 1.6, DOOR_R = 1.5;
   const SHOP_SETS = { rental: { price: 0, acc: 0.9, dist: 0.97, name: 'Rental set', note: 'free · less accurate' }, standard: { price: 150, acc: 1.0, dist: 1.0, name: 'Standard set', note: '$150' }, tour: { price: 400, acc: 1.08, dist: 1.03, name: 'Tour set', note: '$400 · longer and straighter' } };
   const CLUB_IDS = ['Dr', '3W', 'Hy', '4i', '5i', '6i', '7i', '8i', '9i', 'PW', 'SW', 'LW', 'Pt'];
 
@@ -166,7 +167,7 @@
       if (!W.collide(x, -y, 0.3) && W.surface(x, -y) !== 3) { pl.x = x; pl.y = y; ok = true; break; }
     }
     if (!ok) { pl.x = car.x + lx * (s.W / 2 + 0.8); pl.y = car.y + ly * (s.W / 2 + 0.8); }
-    pl.psi = car.psi; pl.yaw = car.psi; pl.pitch = 0.24; pl.v = 0; pl.h = W.heightXZ(pl.x, -pl.y);
+    pl.psi = car.psi; pl.yaw = car.psi; pl.pitch = 0.42; pl.v = 0; pl.h = W.heightXZ(pl.x, -pl.y);
     onFoot = true; person.group.visible = true; placePerson(); doorArmed = hyp(pl.x - door()[0], pl.y - door()[1]) > DOOR_R + 1;
     keys.clear(); if (B.game.isTouch) { ui.tw.textContent = 'ENTER'; $('tGas').textContent = 'WALK'; $('tBrk').textContent = 'BACK'; $('tHb').textContent = 'RUN'; }
     return true;
@@ -279,12 +280,12 @@
     if (bx && !pad.xWas && B.game.mode === 'drive' && !B.game.panel) { if (onFoot) interact(); else exit(); }
     if (by && !pad.yWas && onFoot) pl.mode = (pl.mode + 1) % 2;
     pad.xWas = bx; pad.yWas = by;
-    if (onFoot) { const rx = dz(gp.axes[2] || 0), ry = dz(gp.axes[3] || 0); if (rx || ry) { pl.yaw -= rx * dt * 2.6; pl.pitch = clamp(pl.pitch + ry * dt * 1.6, -0.15, 1.1); pl.hold = 1.2; } }
+    if (onFoot) { const rx = dz(gp.axes[2] || 0), ry = dz(gp.axes[3] || 0); if (rx || ry) { pl.yaw -= rx * dt * 2.6; pl.pitch = clamp(pl.pitch + ry * dt * 1.6, 0.05, 1.1); pl.hold = 1.2; } }
   }
   function pointers() {
     const view = $('view');
     view.addEventListener('pointerdown', (e) => { if (onFoot && !(B.golf && B.golf.camActive) && B.game.mode === 'drive' && !B.game.panel) drag = { x: e.clientX, y: e.clientY, id: e.pointerId }; });
-    view.addEventListener('pointermove', (e) => { if (!drag || e.pointerId !== drag.id) return; pl.yaw -= (e.clientX - drag.x) * 0.006; pl.pitch = clamp(pl.pitch + (e.clientY - drag.y) * 0.004, -0.15, 1.1); drag.x = e.clientX; drag.y = e.clientY; pl.hold = 2; });
+    view.addEventListener('pointermove', (e) => { if (!drag || e.pointerId !== drag.id) return; pl.yaw -= (e.clientX - drag.x) * 0.006; pl.pitch = clamp(pl.pitch + (e.clientY - drag.y) * 0.004, 0.05, 1.1); drag.x = e.clientX; drag.y = e.clientY; pl.hold = 2; });
     const end = (e) => { if (drag && e.pointerId === drag.id) drag = null; }; view.addEventListener('pointerup', end); view.addEventListener('pointercancel', end);
   }
 
@@ -319,14 +320,14 @@
     // the camera settles behind the walker's heading unless the player is looking around
     if (pl.hold > 0) pl.hold -= dt; else if (pl.v > 0.3 && iy > 0.1) { let da = pl.psi - pl.yaw; da = Math.atan2(Math.sin(da), Math.cos(da)); pl.yaw += da * Math.min(1, dt * 2.2); }      // backing up (S) keeps the camera where it is, so S stays 'towards the camera'
     // arms and legs
-    const k = clamp(pl.v / 2.2, 0, 1.3); pl.phase += pl.v * dt * (pl.v > 2.5 ? 3.4 : 4.0); const sw = Math.sin(pl.phase) * 0.62 * Math.min(1, k);
+    const k = clamp(pl.v / 3.0, 0, 1.3); pl.phase += pl.v * dt * (pl.v > 4.5 ? 2.2 : 3.0); const sw = Math.sin(pl.phase) * 0.62 * Math.min(1, k);
     person.legs[0].rotation.z = sw; person.legs[1].rotation.z = -sw; person.arms[0].rotation.z = -sw * 0.8; person.arms[1].rotation.z = sw * 0.8;
     person.bag.visible = !!(B.golf && B.golf.inRound);
     placePerson(); person.group.position.y += Math.abs(Math.sin(pl.phase)) * 0.035 * Math.min(1, k);
     // chase camera (yielded to golf while it owns the view)
     if (golfing) { if (B.game.cam === cam) B.game.cam = null; return; }
-    const d = pl.mode ? 7.5 : 4.4, cp = Math.cos(pl.pitch), tall = B.game.camera && B.game.camera.aspect < 1;
-    let px = pl.x - Math.cos(pl.yaw) * cp * d, py = pl.y - Math.sin(pl.yaw) * cp * d, ph = pl.h + 1.25 + Math.sin(pl.pitch) * d;
+    const d = pl.mode ? 8.5 : 5.2, cp = Math.cos(pl.pitch), tall = B.game.camera && B.game.camera.aspect < 1;
+    let px = pl.x - Math.cos(pl.yaw) * cp * d, py = pl.y - Math.sin(pl.yaw) * cp * d, ph = pl.h + 1.9 + Math.sin(pl.pitch) * d;      // higher off the ground (was 1.25)
     const floor = W.heightXZ(px, -py) + 0.45; if (ph < floor) ph = floor;
     cam[0] = px; cam[1] = ph; cam[2] = -py; cam[3] = pl.x + Math.cos(pl.yaw) * 0.6; cam[4] = pl.h + 1.3; cam[5] = -(pl.y + Math.sin(pl.yaw) * 0.6); cam[6] = tall ? 70 : 60;
     B.game.cam = cam;

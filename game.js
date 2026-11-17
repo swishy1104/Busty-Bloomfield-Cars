@@ -85,7 +85,8 @@
     $('load').hidden = true; for (const id of ['bDrive', 'bTitleCars', 'bTitleRace', 'bTitleOptions']) $(id).disabled = false;
     if (hot && hot.driving) startDriving();
     let last = performance.now();
-    (function loop(now) { requestAnimationFrame(loop); const dt = Math.min(0.05, (now - last) / 1000); last = now; frame(dt); })(last);
+    // real time down to 10 fps (the cap was 0.05 s: under 20 fps the whole game ran in slow motion)
+    (function loop(now) { requestAnimationFrame(loop); const dt = Math.min(0.1, (now - last) / 1000); last = now; frame(dt); })(last);
     if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ x: car.x, y: car.y, psi: car.psi, driving: mode !== 'title' }));
   }
   function resize() {
@@ -260,6 +261,7 @@
       if (padSetup) padCapture(gp);
       else if (photo) { if (menuEdge.reset || menuEdge.pause) setPhoto(false); }
       else if (panel || mode === 'title') padMenu();
+      else if (B.player && B.player.onFoot) { if (padEdge.pause) pause(); }      // on foot: player.js and golf.js own the other buttons
       else { if (padEdge.up) P.shift(car, 1); if (padEdge.down) P.shift(car, -1); if (padEdge.cam) camMode = (camMode + 1) % 3; if (padEdge.reset) resetCar(); if (padEdge.pause) pause(); if (padHit[8] && !padMap && gp.mapping === 'standard') openDropMap(); }      // View / Back / Select opens the map
     }
     inp.steer = clamp(steer, -1, 1); inp.gas = gas; inp.brake = brake; inp.handbrake = hb; inp.assist = S.assist;
@@ -293,7 +295,7 @@
     if (driving) {
       const frozen = race && race.state === 'count';
       if (frozen) { inp.gas = 0; inp.brake = 1; inp.handbrake = 1; inp.steer = 0; }
-      acc = Math.min(acc + dt, 0.1);
+      acc = Math.min(acc + dt, 0.12);
       while (acc >= DT) { P.step(car, inp, DT, env); if (frozen) car.gear = 1; collideCar(); acc -= DT; }
       afterPhysics(dt);
     }

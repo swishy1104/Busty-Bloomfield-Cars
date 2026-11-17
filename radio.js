@@ -237,7 +237,7 @@
   G.on('frame', (dt, driving) => {
     check();
     const v = evol(); if (v !== lastVol) { lastVol = v; el.volume = v; el.muted = v === 0; }     // muted too: iOS ignores volume
-    if (driving) pollPad();
+    if (driving && !(B.golf && B.golf.inRound)) pollPad();      // golf uses the d-pad during a round
     saveT += dt; if (saveT > 10) { saveT = 0; save(); }
   });
   G.on('drive', () => { if (!started) { started = true; if (loaded) tune(st); } });
