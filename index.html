@@ -230,7 +230,7 @@
 
   <div class="panel" id="pGarage" hidden>
     <div class="head"><h2>Garage</h2><button class="btn small" data-close>Drive</button></div>
-    <div class="opt"><label>Setup</label><div class="seg" id="segBuild"><button data-v="1">Drift build</button><button data-v="0">Stock</button></div></div>
+    <div class="opt"><label>Setup</label><div class="seg" id="segBuild"><button data-v="1">Drift build</button><button data-v="0">Race</button></div></div>
     <p id="buildNote"></p>
     <div class="opt"><label>Paint</label><div class="chips" id="paintRow"></div></div>
     <div class="list" id="carList"></div>
@@ -260,7 +260,11 @@
     <div class="head"><h2>Options</h2><button class="btn small" data-close>Close</button></div>
     <div class="opt"><label>Graphics</label><div class="seg" id="segQuality"><button data-v="0">Low</button><button data-v="1">Medium</button><button data-v="2">High</button></div></div>
     <div class="opt"><label>Driving assists</label><div class="seg" id="segAssist"><button data-v="1">On</button><button data-v="0">Off</button></div></div>
-    <p class="fine">Assists add countersteer and feather the throttle so a keyboard can hold a slide. Turn them off for raw physics on a gamepad.</p>
+    <div class="opt"><label>Traction control</label><div class="seg" id="segTc"><button data-v="0">Off</button><button data-v="1">Low</button><button data-v="2">High</button></div></div>
+    <div class="opt"><label>ABS</label><div class="seg" id="segAbs"><button data-v="1">On</button><button data-v="0">Off</button></div></div>
+    <div class="opt"><label>Stability control</label><div class="seg" id="segEsc"><button data-v="1">On</button><button data-v="0">Off</button></div></div>
+    <div class="opt"><label>Countersteer help</label><div class="seg" id="segCs"><button data-v="1">On</button><button data-v="0">Off</button></div></div>
+    <p class="fine">Race setup: assists are driver aids on top of the real car. Turn them all off for the raw car. ABS stays on unless you switch it off.</p>
     <div class="opt"><label>Gearbox</label><div class="seg" id="segGear"><button data-v="0">Automatic</button><button data-v="1">Manual</button></div></div>
     <div class="opt"><label>Sound</label><div class="seg" id="segSound"><button data-v="1">On</button><button data-v="0">Off</button></div></div>
     <div class="opt"><label for="vol_master">Volume</label><div class="row"><input type="range" id="vol_master" min="0" max="100" step="5"><output class="vol">80%</output></div></div>

@@ -62,7 +62,9 @@ if (typeof require !== 'undefined' && require.main === module) {
     const g = row('grass', car), v = row('gravel', car), a = row('asphalt', car);
     for (const r of [g, v]) {
       assert(r.t30 < 9.3 && r.climbMph > 10, `${car} bogs down on ${r.surf}: 0-30 in ${r.t30} s, ${r.climbMph} mph after 6 s up a 10% slope`);
-      assert(r.stop_m < 15.8, `${car} takes ${r.stop_m} m to stop from 30 mph on ${r.surf}`);
+      // physics sim build: 15.8 -> 16.3 m. The Ranger's tyres now match its real 150 ft 60-0 (the stage stopped it in 136 ft); grass
+      // keeps the same share of asphalt grip, so its grass stop grew in proportion (15.3 -> 16.0 m). The other cars are unchanged
+      assert(r.stop_m < 16.3, `${car} takes ${r.stop_m} m to stop from 30 mph on ${r.surf}`);
       assert(r.cornBeta < 25 && r.cornG > 0.42 && r.cornMinMph > 18, `${car} does not hold a line on ${r.surf}: slip ${r.cornBeta} deg, ${r.cornG} g, down to ${r.cornMinMph} mph`);
       assert(r.flickBeta < 45 && r.recover_s < 1.8 && r.kbBeta < 90, `${car} spins on ${r.surf}: flick ${r.flickBeta} deg, ${r.recover_s} s to recover, ${r.kbBeta} deg at full lock and throttle`);
     }

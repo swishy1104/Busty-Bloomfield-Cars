@@ -13,12 +13,16 @@
   const isTouch = matchMedia('(pointer: coarse)').matches;
   const S = { leaves: store.get('leaves', true), car: store.get('car', 'mazda3'), drift: store.get('drift', true), quality: store.get('quality', isTouch ? 0 : 2), assist: store.get('assist', true), manual: !isTouch && store.get('manual', false), sound: store.get('sound', true), traffic: store.get('traffic', 'light'), tod: store.get('tod', 'golden') };
   if (isTouch) document.body.classList.add('touch');
+  // driver aids (Options): traction control 0 off / 1 low / 2 high, ABS, stability control, countersteer help; "Driving assists" is
+  // their preset (On = all on, Off = all off but ABS). First run: derived from the preset. physics.js reads them from inp
+  Object.assign(S, { tc: store.get('tc', S.assist ? 2 : 0), abs: store.get('abs', true), esc: store.get('esc', S.assist), cs: store.get('cs', S.assist) });
+  let inDev = isTouch ? 'touch' : 'kb';      // the device that last moved the car (sticky): physics.js shapes steering per device
   // volume sliders (Options): master, engine, music 0..1, saved as bd.vol.*; audio.js scales its sound by them and hands master x music to the radio
   const VOL = { master: 0.8, engine: 0.8, music: 0.6 };
   for (const k in VOL) VOL[k] = clamp(+store.get('vol.' + k, VOL[k]) || 0, 0, 1);
 
   let renderer, scene, camera, W, car, view, env, mode = 'title', panel = null, panelBack = null, time = 0, camMode = 0, camA = 0, camD = 0, shake = 0, crash = 0, crashT = 0, postK = -1, postT = 0;
-  const inp = { steer: 0, gas: 0, brake: 0, handbrake: 0, assist: true };
+  const inp = { steer: 0, gas: 0, brake: 0, handbrake: 0, assist: true, tc: 2, abs: true, esc: true, cs: true, device: 'kb' };
   const keys = new Set(), touch = { l: 0, r: 0, gas: 0, brk: 0, hb: 0 };
   const D = { pts: 0, mult: 1, time: 0, grace: 0, total: 0, best: store.get('bestDrift', 0) };
   const safe = { x: 0, y: 0, psi: 0, ok: false }, home = { x: 0, y: 0, psi: 0 }, posts = new Map(), errs = new Set();
@@ -43,7 +47,7 @@
     /** Adds a button to the top-right menu; returns the element. */
     addMenuButton(label, onClick) { const b = document.createElement('button'); b.className = 'btn ghost small'; b.textContent = label; b.onclick = onClick; $('menu').insertBefore(b, $('bReset')); const p = document.createElement('button'); p.className = 'btn'; p.textContent = label; p.onclick = onClick; $('pauseExtra').append(p); return b; },   // also listed in the pause menu (the only menu on phones)
     /** Fast-forwards the simulation without rendering (headless checks). */
-    advance(sec, i) { Object.assign(inp, { steer: 0, gas: 0, brake: 0, handbrake: 0, assist: S.assist }, i); for (let t = 0; t < sec; t += 1 / 60) { for (let q = 0; q < 4; q++) { P.step(car, inp, DT, env); collideCar(); } afterPhysics(1 / 60); api.emit('frame', 1 / 60, true, time += 1 / 60); } },
+    advance(sec, i) { Object.assign(inp, { steer: 0, gas: 0, brake: 0, handbrake: 0, assist: S.assist, tc: S.tc, abs: S.abs, esc: S.esc, cs: S.cs, device: 'kb' }, i); for (let t = 0; t < sec; t += 1 / 60) { for (let q = 0; q < 4; q++) { P.step(car, inp, DT, env); collideCar(); } afterPhysics(1 / 60); api.emit('frame', 1 / 60, true, time += 1 / 60); } },
   };
 
   // one bad add-on must not stop the game: its error is logged once and the frame carries on
@@ -216,7 +220,7 @@
   });
   addEventListener('keyup', (e) => keys.delete(e.code));
   addEventListener('blur', () => keys.clear());
-  let padName = null, padMap = store.get('padMap', null), padSetup = null;      // padMap: a layout captured in Options (null = the browser's standard layout)
+  let padName = null, padWheel = false, padMap = store.get('padMap', null), padSetup = null;      // padMap: a layout captured in Options (null = the browser's standard layout)
   const padPrev = new Uint8Array(20), padHit = new Uint8Array(20);
   const PAD_STD = { steer: { a: 0, s: 1 }, gas: { b: 7 }, brake: { b: 6 }, hb: { b: 0 }, up: { b: 5 }, down: { b: 4 }, cam: { b: 3 }, reset: { b: 1 }, pause: { b: 9 } };
   const PAD_ACTS = ['gas', 'brake', 'hb', 'up', 'down', 'cam', 'reset', 'pause'], padWas = {}, padEdge = {}, PAD_NONE = { steer: { a: 0, s: 1 } }, menuWas = {}, menuEdge = {};
@@ -246,7 +250,8 @@
     const pads = navigator.getGamepads ? navigator.getGamepads() : null; let gp = null;
     if (pads) for (let i = 0; i < pads.length; i++) { const g = pads[i]; if (g && g.connected && g.buttons.length >= 4) { gp = g; break; } }
     padRef = gp; const pn = gp ? gp.id : null;
-    if (pn !== padName) { padName = pn; const short = pn ? pn.replace(/\s*\(.*$/, '').trim() || 'Gamepad' : null; $('padStatus').textContent = short ? 'Controller connected: ' + short : 'No controller detected. Click in the game, then press any button on the controller.'; if (mode !== 'title') toast(short ? 'Controller connected: ' + short : 'Controller disconnected'); padOptText();
+    if (pn !== padName) { padName = pn; padWheel = !!pn && /wheel|steering/i.test(pn);      // a steering wheel names itself in its id
+      const short = pn ? pn.replace(/\s*\(.*$/, '').trim() || 'Gamepad' : null; $('padStatus').textContent = short ? 'Controller connected: ' + short : 'No controller detected. Click in the game, then press any button on the controller.'; if (mode !== 'title') toast(short ? 'Controller connected: ' + short : 'Controller disconnected'); padOptText();
       const unknown = gp && gp.mapping !== 'standard' && !padMap; $('titlePad').hidden = !gp; if (gp) $('titlePad').textContent = 'Controller: ' + short + (unknown ? ' · layout unknown: Options → Controller → Set up buttons' : ' · ready'); }
     if (gp && gp.mapping !== 'standard' && !padMap && mode === 'drive' && !panel && !padSetup && store.get('padAsked') !== gp.id) { store.set('padAsked', gp.id); padSetupStart(true); toast('Unknown controller layout: set up its buttons'); }      // a pad the browser cannot map: ask once, while driving
     if (gp) {
@@ -256,15 +261,20 @@
       for (const k of PAD_ACTS) { const p = padVal(gp, M[k]) > 0.5; padEdge[k] = p && !padWas[k] ? 1 : 0; padWas[k] = p; }
       const MM = padMap || PAD_STD, odd = !padMap && gp.mapping !== 'standard';      // menus on any pad: A (0) selects; B (1), Start (9, or 11 on Android-style pads) go back
       for (const k of ['hb', 'reset', 'pause']) { const p = padVal(gp, MM[k]) > 0.5 || (odd && k === 'pause' && padVal(gp, { b: 11 }) > 0.5); menuEdge[k] = p && !menuWas[k] ? 1 : 0; menuWas[k] = p; }
-      const a0 = (gp.axes[M.steer.a] || 0) - (M.steer.r || 0), ax = Math.abs(a0) < 0.08 ? 0 : a0; steer -= (M.steer.s || 1) * Math.sign(ax) * Math.pow(Math.abs(ax), 1.6);
-      gas = Math.max(gas, padVal(gp, M.gas)); brake = Math.max(brake, padVal(gp, M.brake)); hb = Math.max(hb, padVal(gp, M.hb));
+      // a steering wheel drives the race car's rack 1:1 (device 'wheel'): no stick deadzone, no power curve
+      const a0 = (gp.axes[M.steer.a] || 0) - (M.steer.r || 0), ax = Math.abs(a0) < (padWheel ? 0.005 : 0.08) ? 0 : a0; steer -= (M.steer.s || 1) * Math.sign(ax) * Math.pow(Math.abs(ax), padWheel ? 1 : 1.6);
+      const pg = padVal(gp, M.gas), pb = padVal(gp, M.brake); if (ax || pg > 0.05 || pb > 0.05) inDev = padWheel ? 'wheel' : 'pad';
+      gas = Math.max(gas, pg); brake = Math.max(brake, pb); hb = Math.max(hb, padVal(gp, M.hb));
       if (padSetup) padCapture(gp);
       else if (photo) { if (menuEdge.reset || menuEdge.pause) setPhoto(false); }
       else if (panel || mode === 'title') padMenu();
       else if (B.player && B.player.onFoot) { if (padEdge.pause) pause(); }      // on foot: player.js and golf.js own the other buttons
       else { if (padEdge.up) P.shift(car, 1); if (padEdge.down) P.shift(car, -1); if (padEdge.cam) camMode = (camMode + 1) % 3; if (padEdge.reset) resetCar(); if (padEdge.pause) pause(); if (padHit[8] && !padMap && gp.mapping === 'standard') openDropMap(); }      // View / Back / Select opens the map
     }
+    if (touch.l || touch.r || touch.gas || touch.brk) inDev = 'touch';
+    if (keys.has('KeyA') || keys.has('KeyD') || keys.has('KeyW') || keys.has('KeyS') || keys.has('ArrowLeft') || keys.has('ArrowRight') || keys.has('ArrowUp') || keys.has('ArrowDown')) inDev = 'kb';
     inp.steer = clamp(steer, -1, 1); inp.gas = gas; inp.brake = brake; inp.handbrake = hb; inp.assist = S.assist;
+    inp.tc = S.tc; inp.abs = S.abs; inp.esc = S.esc; inp.cs = S.cs; inp.device = inDev;
   }
   // menus on a pad: D-pad or stick moves the focus, A presses, B or Start goes back (Start on the title drives); on a volume
   // slider, left / right (D-pad or stick) move it by 5 %
@@ -665,7 +675,7 @@
   const PAINTS = [0xf3f3ee, 0xb9bcc2, 0x6f747b, 0x16181d, 0xc8161d, 0xe2581c, 0xf2c230, 0x2f6b3a, 0x1f4fa8, 0x5a2d82, 0x7a1f2b, 0x3aa0c8];
   function renderGarage() {
     seg('segBuild', S.drift ? 1 : 0, (v) => { setCar(S.car, v === '1'); renderGarage(); });
-    $('buildNote').textContent = S.drift ? 'Drift build: rear-wheel-drive swap, welded diff, big steering angle and more power. Every car can hold a slide.' : 'Stock: factory power and drivetrain. Front-drivers need the handbrake; the Ranger and Mustang will still step out.';
+    $('buildNote').textContent = S.drift ? 'Drift build: rear-drive swap, welded diff, 54° angle kit, more power and forgiving tyres. Easy to slide, hard to spin.' : 'Race: the real car. Factory power, drivetrain, tyres, suspension and brakes, matched to published tests. Driver aids are in Options.';
     const hex = (c) => '#' + c.toString(16).padStart(6, '0'), cur = P.CARS.find((c) => c.id === S.car), row = $('paintRow'); row.textContent = '';
     for (const c of [cur.color].concat(PAINTS.filter((p) => p !== cur.color))) {
       const b = document.createElement('button'), on = (paints[S.car] === undefined ? cur.color : paints[S.car]) === c; b.className = 'chip' + (on ? ' on' : ''); b.style.background = hex(c);
@@ -687,7 +697,14 @@
   }
   $('bPadSetup').onclick = padSetupStart; $('bPadStd').onclick = () => { padMap = null; store.set('padMap', null); padOptText(); toast('Standard controller layout'); }; padOptText();
   seg('segQuality', S.quality, (v) => { autoQ = false; S.quality = +v; store.set('quality', S.quality); applyQuality(); });
-  seg('segAssist', S.assist ? 1 : 0, (v) => { S.assist = v === '1'; store.set('assist', S.assist); });
+  // driver aids: the preset sets all four; a detail row lights the preset only when all four match it
+  const aidsShow = () => { const on = S.tc === 2 && S.abs && S.esc && S.cs, off = S.tc === 0 && S.abs && !S.esc && !S.cs;
+    seg('segAssist', on ? 1 : off ? 0 : -1); seg('segTc', S.tc); seg('segAbs', S.abs ? 1 : 0); seg('segEsc', S.esc ? 1 : 0); seg('segCs', S.cs ? 1 : 0); };
+  const aidsSave = () => { S.assist = S.tc > 0 || S.esc || S.cs; for (const k of ['assist', 'tc', 'abs', 'esc', 'cs']) store.set(k, S[k]); aidsShow(); };
+  seg('segAssist', 1, (v) => { const on = v === '1'; Object.assign(S, { tc: on ? 2 : 0, abs: true, esc: on, cs: on }); aidsSave(); });
+  seg('segTc', S.tc, (v) => { S.tc = +v; aidsSave(); }); seg('segAbs', 1, (v) => { S.abs = v === '1'; aidsSave(); });
+  seg('segEsc', 1, (v) => { S.esc = v === '1'; aidsSave(); }); seg('segCs', 1, (v) => { S.cs = v === '1'; aidsSave(); });
+  aidsShow();
   seg('segTime', S.tod, (v) => { S.tod = v; store.set('tod', v); setTod(v); });
   seg('segLeaves', S.leaves ? 1 : 0, (v) => { S.leaves = v === '1'; store.set('leaves', S.leaves); W.setLeaves(S.leaves); });
   seg('segTraffic', S.traffic, (v) => { S.traffic = v; store.set('traffic', v); });
